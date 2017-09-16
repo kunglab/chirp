@@ -52,8 +52,9 @@ report_keys = ["loss_dis", "loss_gen", "loss_color"]
 # Set up dataset
 num_samp = 2**13
 z = fmlin(num_samp, 0.01, .1)[0]
-zr = np.array([zi.real for zi in z]).reshape(1, 1, 1, -1)
-x = F.im2col(Variable(zr), ksize=(1,128)).data
+#zr = np.array([zi.real for zi in z]).reshape(1, 1, 1, -1)
+zr = np.array([[zi.real, zi.imag] for zi in z]).T.reshape(1, 1, 2, -1)
+x = F.im2col(Variable(zr), ksize=(1, 128)).data
 x = x.transpose(3, 0, 2, 1)
 train_dataset = Dataset(x)
 train_iter = chainer.iterators.SerialIterator(train_dataset, args.batchsize)

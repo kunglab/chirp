@@ -12,13 +12,24 @@ def download_file(path, url):
     return local_filename
 
 
-def download_trained_models():
+def download_models():
     directory = '_models'
     if not os.path.exists(directory):
         os.makedirs(directory)
 
     dis_url = 'https://www.dropbox.com/s/tg738ajgc6o9u84/WGANDiscriminator.npz?dl=1'
     gen_url = 'https://www.dropbox.com/s/wzbig2iald8yk2s/DCGANGenerator.npz?dl=1'
+
+    download_file(directory, dis_url)
+    download_file(directory, gen_url)
+
+def download_iq_models():
+    directory = '_models'
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    dis_url = 'https://www.dropbox.com/s/p7wvkuygu91g87v/WGANDiscriminator_iq.npz?dl=1'
+    gen_url = 'https://www.dropbox.com/s/fq0wcx8ldksn1n8/DCGANGenerator_iq.npz?dl=1'
 
     download_file(directory, dis_url)
     download_file(directory, gen_url)
