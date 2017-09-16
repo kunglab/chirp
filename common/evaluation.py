@@ -14,6 +14,7 @@ from chainer import serializers
 import chainer.functions as F
 import matplotlib.pyplot as plt
 
+plot_markers = ['x', '+']
 
 def sample_generate_light(gen, dst, nsamples=25, seed=0):
     @chainer.training.make_extension()
@@ -24,13 +25,15 @@ def sample_generate_light(gen, dst, nsamples=25, seed=0):
         with chainer.using_config('train', False), chainer.using_config('enable_backprop', False):
             x = gen(z)
         x = chainer.cuda.to_cpu(x.data)
-        x = x.reshape(nsamples, -1)
+        x = x.reshape(x.shape[0], x.shape[2], x.shape[3])
         np.random.seed()
 
-        fig = plt.figure(figsize=(16,16))
+        fig = plt.figure(figsize=(24,16))
         for i in range(nsamples):
             ax = plt.subplot(5, 5, i+1)
-            ax.plot(x[i], '-x')
+            for j, xi in enumerate(x[i]):
+                # shift up by 2 to visualize
+                ax.plot(xi + 2*j, '-', marker=plot_markers[j])
         plt.tight_layout()
 
         preview_dir = '{}/preview'.format(dst)
@@ -53,15 +56,17 @@ def sample_generate(gen, dst, nsamples=25, seed=0):
         with chainer.using_config('train', False), chainer.using_config('enable_backprop', False):
             x = gen(z)
         x = chainer.cuda.to_cpu(x.data)
-        x = x.reshape(nsamples, -1)
+        x = x.reshape(x.shape[0], x.shape[2], x.shape[3])
         np.random.seed()
 
-        fig = plt.figure(figsize=(16,16))
+        fig = plt.figure(figsize=(24,16))
         for i in range(nsamples):
             ax = plt.subplot(5, 5, i+1)
-            ax.plot(x[i], '-x')
+            for j, xi in enumerate(x[i]):
+                # shift up by 2 to visualize
+                ax.plot(xi + 2*j, '-', marker=plot_markers[j])
         plt.tight_layout()
- 
+
         preview_dir = '{}/preview'.format(dst)
         preview_path = preview_dir + '/image{:0>8}.png'.format(trainer.updater.iteration)
         if not os.path.exists(preview_dir):

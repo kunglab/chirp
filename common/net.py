@@ -100,13 +100,13 @@ class DCGANGenerator(chainer.Chain):
 
         with self.init_scope():
             w = chainer.initializers.Normal(wscale)
-            self.l0 = L.Linear(self.n_hidden, bottom_width * ch, initialW=w)
+            self.l0 = L.Linear(self.n_hidden, 2 * bottom_width * ch, initialW=w)
             self.dc1 = L.Deconvolution2D(ch, ch // 2, (1, 4), (1, 2), (0, 1), initialW=w)
             self.dc2 = L.Deconvolution2D(ch // 2, ch // 4, (1, 4), (1, 2), (0, 1), initialW=w)
             self.dc3 = L.Deconvolution2D(ch // 4, ch // 8, (1, 4), (1, 2), (0, 1), initialW=w)
             self.dc4 = L.Deconvolution2D(ch // 8, 1, (1, 3), 1, (0, 1), initialW=w)
             if self.use_bn:
-                self.bn0 = L.BatchNormalization(bottom_width * ch)
+                self.bn0 = L.BatchNormalization(2 * bottom_width * ch)
                 self.bn1 = L.BatchNormalization(ch // 2)
                 self.bn2 = L.BatchNormalization(ch // 4)
                 self.bn3 = L.BatchNormalization(ch // 8)
@@ -124,14 +124,14 @@ class DCGANGenerator(chainer.Chain):
     def __call__(self, z, n=None):
         if not self.use_bn:
             h = F.reshape(self.hidden_activation(self.l0(z)),
-                          (len(z), self.ch, -1, self.bottom_width))
+                          (len(z), self.ch, 2, self.bottom_width))
             h = self.hidden_activation(self.dc1(h))
             h = self.hidden_activation(self.dc2(h))
             h = self.hidden_activation(self.dc3(h))
             x = self.output_activation(self.dc4(h))
         else:
             h = F.reshape(self.hidden_activation(self.bn0(self.l0(z))),
-                          (len(z), self.ch, -1, self.bottom_width))
+                          (len(z), self.ch, 2, self.bottom_width))
             h = self.hidden_activation(self.bn1(self.dc1(h)))
             h = self.hidden_activation(self.bn2(self.dc2(h)))
             h = self.hidden_activation(self.bn3(self.dc3(h)))
@@ -154,7 +154,7 @@ class WGANDiscriminator(chainer.Chain):
             self.c2_0 = L.Convolution2D(ch // 2, ch // 2, (1, 3), 1, (0, 1), initialW=w)
             self.c3 = L.Convolution2D(ch // 2, ch // 1, (1, 4), (1, 2), (0, 1), initialW=w)
             self.c3_0 = L.Convolution2D(ch // 1, ch // 1, (1, 3), 1, (0, 1), initialW=w)
-            self.l4 = L.Linear(bottom_width * ch, output_dim, initialW=w)
+            self.l4 = L.Linear(2 * bottom_width * ch, output_dim, initialW=w)
 
     def __call__(self, x):
         self.x = x
@@ -188,7 +188,7 @@ class WGANDiscriminator(chainer.Chain):
 
     def differentiable_backward(self, x):
         g = backward_linear(self.h6, x, self.l4)
-        g = F.reshape(g, (x.shape[0], self.ch, -1, self.bottom_width))
+        g = F.reshape(g, (x.shape[0], self.ch, 2, self.bottom_width))
         g = backward_leaky_relu(self.h6, g, 0.2)
         g = backward_convolution(self.h5, g, self.c3_0)
         g = backward_leaky_relu(self.h5, g, 0.2)
