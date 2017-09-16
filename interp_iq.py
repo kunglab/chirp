@@ -29,14 +29,14 @@ parser.add_argument('--out', '-o', default='result', help='Directory to output t
 args = parser.parse_args()
 
 # download models
-if not os.path.exists('_models/DCGANGenerator.npz'):
+if not os.path.exists('_models/DCGANGenerator_iq.npz'):
     print('Downloading models...')
-    load_models.download_models()
+    load_models.download_iq_models()
 
 generator = common.net.DCGANGenerator()
 discriminator = common.net.WGANDiscriminator()
-serializers.load_npz('_models/DCGANGenerator.npz', generator)
-serializers.load_npz('_models/WGANDiscriminator.npz', discriminator)
+serializers.load_npz('_models/DCGANGenerator_iq.npz', generator)
+serializers.load_npz('_models/WGANDiscriminator_iq.npz', discriminator)
 if args.gpu >= 0:
     generator.to_gpu()
     discriminator.to_gpu()
@@ -49,15 +49,18 @@ z = Variable(xp.asarray(z))
 x = generator(z)
 z = chainer.cuda.to_cpu(xp.asarray(z.data))
 x = chainer.cuda.to_cpu(x.data)
-x = x.reshape(len(x), -1)
+x = x.reshape(x.shape[0], x.shape[2], x.shape[3])
 
 fig = plt.figure()
 ax = plt.axes()
-line, = plt.plot(x[0], '-x', animated=True)
+line1, = plt.plot(x[0, 0], '-x', animated=True)
+line2, = plt.plot(x[0, 1], '-+', animated=True)
 
 def init():
-    line.set_ydata(x[0])
-    return line,
+    print line1
+    line1.set_ydata(x[0, 0])
+    line2.set_ydata(x[0, 1])
+    return line1, line2
 
 def func(i):
     print 'frame: ', i
@@ -67,8 +70,9 @@ def func(i):
     if i >= len(z):
         i = len(z) - 1
 
-    line.set_ydata(x[i])
-    return line,
+    line1.set_ydata(x[i, 0])
+    line2.set_ydata(x[i, 1])
+    return line1, line2
 
 
 if not os.path.exists('figures'):
@@ -77,4 +81,4 @@ if not os.path.exists('figures'):
 #plt.axis('off')
 plt.tight_layout()
 ani = animation.FuncAnimation(fig, func, init_func=init, frames=np.arange(len(z))+10, interval=100, blit=True)
-ani.save('figures/interp_z.gif', dpi=300, writer='imagemagick')
+ani.save('figures/interp_iq_z.gif', dpi=300, writer='imagemagick')
