@@ -51,11 +51,15 @@ report_keys = ["loss_dis", "loss_gen", "loss_color"]
 
 # Set up dataset
 num_samp = 2**13
+sample_width = 512
+n_hidden = 2
 z = fmlin(num_samp, 0.01, .1)[0]
 #zr = np.array([zi.real for zi in z]).reshape(1, 1, 1, -1)
 zr = np.array([[zi.real, zi.imag] for zi in z]).T.reshape(1, 1, 2, -1)
-x = F.im2col(Variable(zr), ksize=(1, 128)).data
+x = F.im2col(Variable(zr), ksize=(1, sample_width)).data
 x = x.transpose(3, 0, 2, 1)
+# use early data more
+x = np.concatenate((x[:1000], x[:2000], x[:4000], x))
 train_dataset = Dataset(x)
 train_iter = chainer.iterators.SerialIterator(train_dataset, args.batchsize)
 
@@ -67,8 +71,8 @@ updater_args = {
     "device": args.gpu
 }
 
-generator = common.net.DCGANGenerator()
-discriminator = common.net.WGANDiscriminator()
+generator = common.net.DCGANGenerator(n_hidden=n_hidden, bottom_width=sample_width/8)
+discriminator = common.net.WGANDiscriminator(bottom_width=sample_width/8)
 models = [generator, discriminator]
 report_keys.append("loss_gp")
 updater_args["n_dis"] = args.n_dis
