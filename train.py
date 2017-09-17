@@ -56,16 +56,19 @@ num_amps = 5.
 amps = np.linspace(1./num_amps, 1., num_amps)
 num_samp = 2**13
 z = fmlin(num_samp, 0.01, .1)[0]
-zs = np.array([z*amp for amp in amps[::-1]])
+zs = np.array([z*amp for amp in amps])
 #zr = np.array([zi.real for zi in z]).reshape(1, 1, 1, -1)
 
 xs = []
-for z in zs:
+ys = []
+for i, z in enumerate(zs):
     zr = np.array([[zi.real, zi.imag] for zi in z]).T.reshape(1, 1, 2, -1)
     x = F.im2col(Variable(zr), ksize=(1, 256)).data
     x = x.transpose(3, 0, 2, 1)
     xs.append(x)
+    ys.append(np.array([amps[i]]*x.shape[0]))
 xs = np.vstack((xs))
+ys = np.hstack((ys)) ## labels
 train_dataset = Dataset(xs)
 train_iter = chainer.iterators.SerialIterator(train_dataset, args.batchsize)
 
