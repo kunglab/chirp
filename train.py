@@ -54,13 +54,24 @@ num_samp = 2**13
 sample_width = 512
 n_hidden = 2
 z = fmlin(num_samp, 0.01, .1)[0]
+num_amps = 5.
+amps = np.linspace(1./num_amps, 1., num_amps)
+num_samp = 2**13
+z = fmlin(num_samp, 0.01, .1)[0]
+zs = np.array([z*amp for amp in amps])
 #zr = np.array([zi.real for zi in z]).reshape(1, 1, 1, -1)
-zr = np.array([[zi.real, zi.imag] for zi in z]).T.reshape(1, 1, 2, -1)
-x = F.im2col(Variable(zr), ksize=(1, sample_width)).data
-x = x.transpose(3, 0, 2, 1)
-# use early data more
-x = np.concatenate((x[:1000], x[:2000], x[:4000], x))
-train_dataset = Dataset(x)
+
+xs = []
+ys = []
+for i, z in enumerate(zs):
+    zr = np.array([[zi.real, zi.imag] for zi in z]).T.reshape(1, 1, 2, -1)
+    x = F.im2col(Variable(zr), ksize=(1, 256)).data
+    x = x.transpose(3, 0, 2, 1)
+    xs.append(x)
+    ys.append(np.array([amps[i]]*x.shape[0]))
+xs = np.vstack((xs))
+ys = np.hstack((ys)) ## labels
+train_dataset = Dataset(xs)
 train_iter = chainer.iterators.SerialIterator(train_dataset, args.batchsize)
 
 # Setup algorithm specific networks and updaters
@@ -70,7 +81,8 @@ updater_args = {
     "iterator": {'main': train_iter},
     "device": args.gpu
 }
-
+sample_width=256
+n_hidden=5
 generator = common.net.DCGANGenerator(n_hidden=n_hidden, bottom_width=sample_width/8)
 discriminator = common.net.WGANDiscriminator(bottom_width=sample_width/8)
 models = [generator, discriminator]

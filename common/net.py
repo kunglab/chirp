@@ -86,10 +86,22 @@ def backward_sigmoid(x_in, g):
     y = F.sigmoid(x_in)
     return g * y * (1 - y)
 
+def standard_make_hidden(batch_size):
+    if self.z_distribution == "normal":
+        return np.random.randn(batchsize, self.n_hidden, 1, 1) \
+            .astype(np.float32)
+    elif self.z_distribution == "uniform":
+        return np.random.uniform(-1, 1, (batchsize, self.n_hidden, 1, 1)) \
+            .astype(np.float32)
+    else:
+        raise Exception("unknown z distribution: %s" % self.z_distribution)
+
+
 class DCGANGenerator(chainer.Chain):
-    def __init__(self, n_hidden=128, bottom_width=16, ch=512, wscale=0.02,
+    def __init__(self, make_hidden_f=standard_make_hidden, n_hidden=128, bottom_width=16, ch=512, wscale=0.02,
                  z_distribution="uniform", hidden_activation=F.relu, output_activation=F.tanh, use_bn=True):
         super(DCGANGenerator, self).__init__()
+	self.make_hidden_f = make_hidden_f
         self.n_hidden = n_hidden
         self.ch = ch
         self.bottom_width = bottom_width
@@ -112,14 +124,7 @@ class DCGANGenerator(chainer.Chain):
                 self.bn3 = L.BatchNormalization(ch // 8)
 
     def make_hidden(self, batchsize):
-        if self.z_distribution == "normal":
-            return np.random.randn(batchsize, self.n_hidden, 1, 1) \
-                .astype(np.float32)
-        elif self.z_distribution == "uniform":
-            return np.random.uniform(-1, 1, (batchsize, self.n_hidden, 1, 1)) \
-                .astype(np.float32)
-        else:
-            raise Exception("unknown z distribution: %s" % self.z_distribution)
+        return self.make_hidden_f(batchsize)
 
     def __call__(self, z, n=None):
         if not self.use_bn:

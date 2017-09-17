@@ -77,4 +77,4 @@ if not os.path.exists('figures'):
 #plt.axis('off')
 plt.tight_layout()
 ani = animation.FuncAnimation(fig, func, init_func=init, frames=np.arange(len(z))+10, interval=100, blit=True)
-ani.save('figures/interp_z.gif', dpi=300, writer='imagemagick')
+ani.save('figures/interp_z.gif', dpi=50, writer='imagemagick')
