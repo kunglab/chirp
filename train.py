@@ -52,11 +52,21 @@ report_keys = ["loss_dis", "loss_gen", "loss_color"]
 # Set up dataset
 num_samp = 2**13
 z = fmlin(num_samp, 0.01, .1)[0]
+num_amps = 5.
+amps = np.linspace(1./num_amps, 1., num_amps)
+num_samp = 2**13
+z = fmlin(num_samp, 0.01, .1)[0]
+zs = np.array([z*amp for amp in amps[::-1]])
 #zr = np.array([zi.real for zi in z]).reshape(1, 1, 1, -1)
-zr = np.array([[zi.real, zi.imag] for zi in z]).T.reshape(1, 1, 2, -1)
-x = F.im2col(Variable(zr), ksize=(1, 128)).data
-x = x.transpose(3, 0, 2, 1)
-train_dataset = Dataset(x)
+
+xs = []
+for z in zs:
+    zr = np.array([[zi.real, zi.imag] for zi in z]).T.reshape(1, 1, 2, -1)
+    x = F.im2col(Variable(zr), ksize=(1, 256)).data
+    x = x.transpose(3, 0, 2, 1)
+    xs.append(x)
+xs = np.vstack((xs))
+train_dataset = Dataset(xs)
 train_iter = chainer.iterators.SerialIterator(train_dataset, args.batchsize)
 
 # Setup algorithm specific networks and updaters
@@ -66,9 +76,12 @@ updater_args = {
     "iterator": {'main': train_iter},
     "device": args.gpu
 }
-
-generator = common.net.DCGANGenerator()
-discriminator = common.net.WGANDiscriminator()
+sample_width=256
+n_hidden=5
+#generator = common.net.DCGANGenerator()
+#discriminator = common.net.WGANDiscriminator()
+generator = common.net.DCGANGenerator(n_hidden=n_hidden, bottom_width=sample_width/8)
+discriminator = common.net.WGANDiscriminator(bottom_width=sample_width/8)
 models = [generator, discriminator]
 report_keys.append("loss_gp")
 updater_args["n_dis"] = args.n_dis
