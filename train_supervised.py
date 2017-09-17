@@ -45,7 +45,7 @@ parser.add_argument('--output_dim', type=int, default=256, help='output dimensio
 
 args = parser.parse_args()
 record_setting(args.out)
-report_keys = ["loss_dis", "loss_gen", "loss_color"]
+report_keys = ["loss_dis", "loss_gen", "loss_amp_gen", "loss_amp_dis"]
 
 
 # Set up dataset

@@ -117,7 +117,8 @@ class LabeledUpdater(chainer.training.StandardUpdater):
                 loss_gen.backward()
                 gen_optimizer.update()
                 chainer.reporter.report({
-                    'loss_gen': loss_gen
+                    'loss_gen': loss_gen,
+                    'loss_amp_gen': loss_amp_gen.data
                 })
 
             x_fake.unchain_backward()
@@ -127,4 +128,5 @@ class LabeledUpdater(chainer.training.StandardUpdater):
             dis_optimizer.update()
 
             chainer.reporter.report({'loss_dis': loss_dis})
+            chainer.reporter.report({'loss_amp_dis': loss_amp_dis.data})
             chainer.reporter.report({'loss_gp': loss_gp})
