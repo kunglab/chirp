@@ -7,10 +7,7 @@ from chainer.dataset import dataset_mixin
 
 class Dataset(dataset_mixin.DatasetMixin):
     def __init__(self, X, test=False):
-        if test:
-            self.ims = X
-        else:
-            self.ims = X
+        self.ims = X
         print("load dataset.  shape: ", self.ims.shape)
 
     def __len__(self):
@@ -18,6 +15,19 @@ class Dataset(dataset_mixin.DatasetMixin):
 
     def get_example(self, i):
         return self.ims[i]
+
+class LabeledDataset(dataset_mixin.DatasetMixin):
+    def __init__(self, X, Y, test=False):
+        self.ims = X
+        self.ys = Y
+        print("load labeled dataset.  shape: ", self.ims.shape)
+
+    def __len__(self):
+        return self.ims.shape[0]
+
+    def get_example(self, i):
+        return self.ims[i], self.ys[i]
+
 
 class Cifar10Dataset(dataset_mixin.DatasetMixin):
     def __init__(self, test=False):

@@ -13,8 +13,8 @@ from chainer.training import extensions
 
 sys.path.append(os.path.dirname(__file__))
 
-from dragan.updater import Updater
-from common.dataset import Cifar10Dataset, Dataset
+from dragan.updater import LabeledUpdater
+from common.dataset import Dataset, LabeledDataset
 from common.evaluation import sample_generate, sample_generate_light
 from common.record import record_setting
 import common.net
@@ -24,8 +24,6 @@ def make_optimizer(model, alpha, beta1, beta2):
     optimizer = chainer.optimizers.Adam(alpha=alpha, beta1=beta1, beta2=beta2)
     optimizer.setup(model)
     return optimizer
-
-
 
 parser = argparse.ArgumentParser(description='Train script')
 parser.add_argument('--algorithm', '-a', type=str, default="dcgan", help='GAN algorithm')
@@ -72,8 +70,14 @@ for i, z in enumerate(zs):
     ys.append(np.array([amps[i]]*x.shape[0]))
 xs = np.vstack((xs))
 ys = np.hstack((ys)) ## labels
-train_dataset = Dataset(xs)
+train_dataset = LabeledDataset(xs, ys)
 train_iter = chainer.iterators.SerialIterator(train_dataset, args.batchsize)
+
+def make_amp_hidden(n_hidden, batchsize):
+    zs = np.random.randn(batchsize, n_hidden, 1, 1).astype(np.float32)
+    amp_zs = np.random.uniform(0.2, 1.0, (batchsize, 1, 1, 1)).astype(np.float32)
+    return np.concatenate((zs, amp_zs), axis=1)
+
 
 # Setup algorithm specific networks and updaters
 models = []
@@ -84,10 +88,11 @@ updater_args = {
 }
 sample_width=256
 n_hidden=5
-make_hidden_f = partial(common.net.standard_make_hidden, n_hidden)
-generator = common.net.DCGANGenerator(make_hidden_f, n_hidden=n_hidden, bottom_width=sample_width/8)
+make_hidden_f = partial(make_amp_hidden, n_hidden)
+generator = common.net.DCGANGenerator(make_hidden_f, n_hidden=n_hidden+1, bottom_width=sample_width/8)
 discriminator = common.net.WGANDiscriminator(bottom_width=sample_width/8)
-models = [generator, discriminator]
+amp_clf = common.net.WGANDiscriminator(bottom_width=sample_width/8)
+models = [generator, discriminator, amp_clf]
 report_keys.append("loss_gp")
 updater_args["n_dis"] = args.n_dis
 updater_args["lam"] = args.lam
@@ -101,12 +106,13 @@ if args.gpu >= 0:
 # Set up optimizers
 opts["opt_gen"] = make_optimizer(generator, args.adam_alpha, args.adam_beta1, args.adam_beta2)
 opts["opt_dis"] = make_optimizer(discriminator, args.adam_alpha, args.adam_beta1, args.adam_beta2)
+opts["opt_clf"] = make_optimizer(amp_clf, args.adam_alpha, args.adam_beta1, args.adam_beta2)
 
 updater_args["optimizer"] = opts
 updater_args["models"] = models
 
 # Set up updater and trainer
-updater = Updater(**updater_args)
+updater = LabeledUpdater(**updater_args)
 trainer = training.Trainer(updater, (args.max_iter, 'iteration'), out=args.out)
 
 # Set up logging

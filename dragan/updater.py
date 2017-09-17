@@ -65,23 +65,27 @@ class Updater(chainer.training.StandardUpdater):
 
 class LabeledUpdater(chainer.training.StandardUpdater):
     def __init__(self, *args, **kwargs):
-        self.gen, self.dis = kwargs.pop('models')
+        self.gen, self.dis, self.amp_clf = kwargs.pop('models')
         self.n_dis = kwargs.pop('n_dis')
         self.lam = kwargs.pop('lam')
-        super(Updater, self).__init__(*args, **kwargs)
+        super(LabeledUpdater, self).__init__(*args, **kwargs)
 
     def update_core(self):
         gen_optimizer = self.get_optimizer('opt_gen')
         dis_optimizer = self.get_optimizer('opt_dis')
+        clf_optimizer = self.get_optimizer('opt_clf')
         xp = self.gen.xp
 
         for it in range(self.n_dis):
             batch = self.get_iterator('main').next()
             batchsize = len(batch)
-            x = []
+            x, y = [], []
             for i in range(batchsize):
-                x.append(np.asarray(batch[i]).astype("f"))
+                xi, yi = batch[i]
+                x.append(np.asarray(xi).astype("f"))
+                y.append(yi)
             x_real = (xp.asarray(x))
+            amp_real = xp.asarray(y).astype("f")
             std_x_real = xp.std(x_real, axis=0, keepdims=True)
             rnd_x = xp.random.uniform(0, 1, x_real.shape).astype("f")
             x_perturb = Variable(x_real + 0.5 * rnd_x * std_x_real)
@@ -91,9 +95,16 @@ class LabeledUpdater(chainer.training.StandardUpdater):
             z = Variable(xp.asarray(self.gen.make_hidden(batchsize)))
             x_fake = self.gen(z)
             y_fake = self.dis(x_fake)
+            amp_fake = z.data[:, -1, 0, 0]
+            x_concat = xp.concatenate((x_fake.data, x_real))
+            amp_concat = Variable(xp.concatenate((amp_fake, amp_real)).reshape(-1, 1))
+            amp_pred = self.amp_clf(Variable(x_concat))
+            loss_amp_gen = F.mean_squared_error(amp_fake.reshape(-1, 1), amp_pred[:batchsize])
+            loss_amp_dis = F.mean_squared_error(amp_concat, amp_pred)
 
             loss_dis = F.sum(F.softplus(-y_real)) / batchsize
             loss_dis += F.sum(F.softplus(y_fake)) / batchsize
+            loss_dis += loss_amp_dis
 
             y_mid = F.sigmoid(self.dis(x_perturb))
             dydx = self.dis.differentiable_backward(xp.ones_like(y_mid.data))
@@ -101,15 +112,15 @@ class LabeledUpdater(chainer.training.StandardUpdater):
             loss_gp = self.lam * F.mean_squared_error(dydx, xp.ones_like(dydx.data))
 
             if it == 0:
-                loss_gen = F.sum(F.softplus(-y_fake)) / batchsize
+                loss_gen = F.sum(F.softplus(-y_fake)) / batchsize + loss_amp_gen
                 self.gen.cleargrads()
                 loss_gen.backward()
                 gen_optimizer.update()
                 chainer.reporter.report({
                     'loss_gen': loss_gen
                 })
-            x_fake.unchain_backward()
 
+            x_fake.unchain_backward()
             self.dis.cleargrads()
             loss_dis.backward()
             loss_gp.backward()
