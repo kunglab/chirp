@@ -79,11 +79,11 @@ class RFModLabeled(dataset_mixin.DatasetMixin):
         np.random.shuffle(self.ys)
         np.random.shuffle(self.xs)
         if test:
-            self.xs = self.xs[:int(self.xs.shape[0]*train_size)]
-            self.ys = self.ys[:int(self.ys.shape[0]*train_size)]
-        else:
             self.xs = self.xs[int(self.xs.shape[0]*train_size):]
             self.ys = self.ys[int(self.ys.shape[0]*train_size):]
+        else:
+            self.xs = self.xs[:int(self.xs.shape[0]*train_size)]
+            self.ys = self.ys[:int(self.ys.shape[0]*train_size)]
         print("load labeled dataset.  shape: ", self.xs.shape)
         np.random.seed()
         self.xs = self.xs.astype('float32')
