@@ -1,9 +1,11 @@
-import os
+import os,sys
+sys.path.append(os.path.dirname(__file__))
 
 import numpy as np
 from PIL import Image
 import chainer
 from chainer.dataset import dataset_mixin
+from load_models import download_file
 
 class Dataset(dataset_mixin.DatasetMixin):
     def __init__(self, X, test=False):
@@ -44,6 +46,30 @@ class Cifar10Dataset(dataset_mixin.DatasetMixin):
 
     def get_example(self, i):
         return self.ims[i]
+
+class RFModLabeled(dataset_mixin.DatasetMixin):
+    def __init__(self, class_set=None):
+        if not os.path.exists('data/modlabels'):
+            os.makedirs('data/modlabels')
+            data_urls = ['https://www.dropbox.com/s/ycc1dvb7u6y8eqj/mod_data.npz?dl=1',
+                         'https://www.dropbox.com/s/r4zl15zo7yg29yf/rf_raw.npz?dl=1']
+            for url in data_urls:
+                download_file('data/modlabels', url)
+
+        if class_set == None:
+            self.xs = np.load('data/modlabels/rf_raw.npz')['arr_0']
+            self.ys = np.load('data/modlabels/mod_data.npz')['arr_0']
+        else:
+            raise NotImplementedError( "No class list - not implemented" )
+
+        print("load labeled dataset.  shape: ", self.xs.shape)
+
+
+    def __len__(self):
+        return self.ims.shape[0]
+
+    def get_example(self, i):
+        return self.ims[i], self.ys[i]
 
 
 def image_to_np(img):
