@@ -91,7 +91,7 @@ n_hidden=5
 make_hidden_f = partial(make_amp_hidden, n_hidden)
 generator = common.net.DCGANGenerator(make_hidden_f, n_hidden=n_hidden+1, bottom_width=sample_width/8)
 discriminator = common.net.WGANDiscriminator(bottom_width=sample_width/8)
-amp_clf = common.net.WGANDiscriminator(bottom_width=sample_width/8)
+amp_clf = common.net.Alex(1)
 models = [generator, discriminator, amp_clf]
 report_keys.append("loss_gp")
 updater_args["n_dis"] = args.n_dis

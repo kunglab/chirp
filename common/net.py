@@ -215,20 +215,20 @@ class Alex(chainer.Chain):
         super(Alex, self).__init__()
         self.z_dim = z_dim
         with self.init_scope():
-            self.conv1 = L.Convolution2D(None,  96, 3, stride=1)
-            self.conv2 = L.Convolution2D(None, 256, 3, pad=1)
-            self.conv3 = L.Convolution2D(None, 384, 3, pad=1)
-            self.conv4 = L.Convolution2D(None, 384, 3, pad=1)
-            self.conv5 = L.Convolution2D(None, 256, 3, pad=1)
+            self.conv1 = L.Convolution2D(None,  96, (1, 3), 1, (0, 1))
+            self.conv2 = L.Convolution2D(None, 256, (1, 3), 1, (0, 1))
+            self.conv3 = L.Convolution2D(None, 384, (1, 3), 1, (0, 1))
+            self.conv4 = L.Convolution2D(None, 384, (1, 3), 1, (0, 1))
+            self.conv5 = L.Convolution2D(None, 256, (1, 3), 1, (0, 1))
             self.fc6 = L.Linear(None, 4096)
             self.fc7 = L.Linear(None, 4096)
             self.fc8 = L.Linear(None, z_dim)
 
     def __call__(self, x):
         h = F.max_pooling_2d(F.local_response_normalization(
-            F.relu(self.conv1(x))), 3, stride=2)
+            F.relu(self.conv1(x))), (1,3), stride=1)
         h = F.max_pooling_2d(F.local_response_normalization(
-            F.relu(self.conv2(h))), 3, stride=2)
+            F.relu(self.conv2(h))), (1,3), stride=1)
         h = F.relu(self.conv3(h))
         h = F.relu(self.conv4(h))
         h = F.max_pooling_2d(F.relu(self.conv5(h)), 3, stride=2)

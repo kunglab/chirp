@@ -85,26 +85,26 @@ class LabeledUpdater(chainer.training.StandardUpdater):
                 x.append(np.asarray(xi).astype("f"))
                 y.append(yi)
             x_real = (xp.asarray(x))
-            amp_real = xp.asarray(y).astype("f")
             std_x_real = xp.std(x_real, axis=0, keepdims=True)
             rnd_x = xp.random.uniform(0, 1, x_real.shape).astype("f")
             x_perturb = Variable(x_real + 0.5 * rnd_x * std_x_real)
-
             y_real = self.dis(x_real)
-
             z = Variable(xp.asarray(self.gen.make_hidden(batchsize)))
             x_fake = self.gen(z)
             y_fake = self.dis(x_fake)
-            amp_fake = z.data[:, -1, 0, 0]
-            x_concat = xp.concatenate((x_fake.data, x_real))
-            amp_concat = Variable(xp.concatenate((amp_fake, amp_real)).reshape(-1, 1))
-            amp_pred = self.amp_clf(Variable(x_concat))
-            loss_amp_gen = F.mean_squared_error(amp_fake.reshape(-1, 1), amp_pred[:batchsize])
-            loss_amp_dis = F.mean_squared_error(amp_concat, amp_pred)
 
+            amp_real = xp.asarray(y).astype("f").reshape(-1, 1)
+            amp_fake = F.reshape(z[:, -1, 0, 0], (-1, 1))
+
+            amp_pred_fake = self.amp_clf(x_fake)
+            amp_pred_real = self.amp_clf(x_real)
+            loss_amp_gen = F.mean_squared_error(amp_fake, amp_pred_fake)
+            loss_amp_dis = loss_amp_gen + F.mean_squared_error(amp_real, amp_pred_real)
             loss_dis = F.sum(F.softplus(-y_real)) / batchsize
             loss_dis += F.sum(F.softplus(y_fake)) / batchsize
             loss_dis += loss_amp_dis
+            #print 'real: ', amp_real[0][0], amp_pred_real.data[0][0]
+            #print 'fake: ', amp_fake.data[0][0], amp_pred_fake.data[0][0]
 
             y_mid = F.sigmoid(self.dis(x_perturb))
             dydx = self.dis.differentiable_backward(xp.ones_like(y_mid.data))
@@ -122,10 +122,12 @@ class LabeledUpdater(chainer.training.StandardUpdater):
                 })
 
             x_fake.unchain_backward()
+            self.amp_clf.cleargrads()
             self.dis.cleargrads()
             loss_dis.backward()
             loss_gp.backward()
             dis_optimizer.update()
+            clf_optimizer.update()
 
             chainer.reporter.report({'loss_dis': loss_dis})
             chainer.reporter.report({'loss_amp_dis': loss_amp_dis.data})
