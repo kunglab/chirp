@@ -85,8 +85,9 @@ class RFModLabeled(dataset_mixin.DatasetMixin):
             self.xs = self.xs[int(self.xs.shape[0]*train_size):]
             self.ys = self.ys[int(self.ys.shape[0]*train_size):]
         print("load labeled dataset.  shape: ", self.xs.shape)
-
         np.random.seed()
+        self.xs = self.xs.astype('float32')
+        self.ys = self.ys.astype('int32')
 
     def __len__(self):
         return self.xs.shape[0]
