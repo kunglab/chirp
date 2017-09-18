@@ -48,7 +48,7 @@ class Cifar10Dataset(dataset_mixin.DatasetMixin):
         return self.ims[i]
 
 class RFModLabeled(dataset_mixin.DatasetMixin):
-    def __init__(self, class_set=None):
+    def __init__(self, class_set=None, test=False):
         if not os.path.exists('data/modlabels'):
             os.makedirs('data/modlabels')
             data_urls = ['https://www.dropbox.com/s/ycc1dvb7u6y8eqj/mod_data.npz?dl=1',
@@ -58,18 +58,26 @@ class RFModLabeled(dataset_mixin.DatasetMixin):
 
         if class_set == None:
             self.xs = np.load('data/modlabels/rf_raw.npz')['arr_0']
+            self.xs = self.xs.reshape(self.xs.shape[0], 1, self.xs.shape[1], self.xs.shape[2])
             self.ys = np.load('data/modlabels/mod_data.npz')['arr_0']
         else:
             raise NotImplementedError( "No class list - not implemented" )
 
+        if test:
+            train_size = .8
+            self.xs = self.xs[:int(self.xs.shape[0]*train_size)]
+            self.ys = self.ys[:int(self.ys.shape[0]*train_size)]
+        else:
+            self.xs = self.xs[int(self.xs.shape[0]*train_size):]
+            self.ys = self.ys[int(self.ys.shape[0]*train_size):]
         print("load labeled dataset.  shape: ", self.xs.shape)
 
 
     def __len__(self):
-        return self.ims.shape[0]
+        return self.xs.shape[0]
 
     def get_example(self, i):
-        return self.ims[i], self.ys[i]
+        return self.xs[i], self.ys[i]
 
 
 def image_to_np(img):
