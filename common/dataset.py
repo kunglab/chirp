@@ -59,12 +59,26 @@ class RFModLabeled(dataset_mixin.DatasetMixin):
         if class_set == None:
             self.xs = np.load('data/modlabels/rf_raw.npz')['arr_0']
             self.xs = self.xs.reshape(self.xs.shape[0], 1, self.xs.shape[1], self.xs.shape[2])
-            self.ys = np.load('data/modlabels/mod_data.npz')['arr_0']
+            self.str_ys = np.load('data/modlabels/mod_data.npz')['arr_0']
+            class_unique = np.arange(np.unique(self.str_ys).shape[0])
+            assert class_unique.shape[0] == 11, "Not enough classes"
+            self.label_map = zip(np.unique(self.str_ys), class_unique)
+            self.ys = np.zeros(self.str_ys.shape[0])
+            for i,t in enumerate(np.unique(self.str_ys)):
+                idx = np.where(self.str_ys == t)[0]
+                self.ys[idx] = i
+
+
         else:
+            # for cl in class_set:
+                # idx = np.where(self.ys )
             raise NotImplementedError( "No class list - not implemented" )
 
+        np.random.seed(10)
+        train_size = .8
+        np.random.shuffle(self.ys)
+        np.random.shuffle(self.xs)
         if test:
-            train_size = .8
             self.xs = self.xs[:int(self.xs.shape[0]*train_size)]
             self.ys = self.ys[:int(self.ys.shape[0]*train_size)]
         else:
@@ -72,6 +86,7 @@ class RFModLabeled(dataset_mixin.DatasetMixin):
             self.ys = self.ys[int(self.ys.shape[0]*train_size):]
         print("load labeled dataset.  shape: ", self.xs.shape)
 
+        np.random.seed()
 
     def __len__(self):
         return self.xs.shape[0]
