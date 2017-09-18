@@ -74,10 +74,14 @@ class RFModLabeled(dataset_mixin.DatasetMixin):
                 # idx = np.where(self.ys )
             raise NotImplementedError( "No class list - not implemented" )
 
+<<<<<<< HEAD
         np.random.seed(10)
         train_size = .8
         np.random.shuffle(self.ys)
         np.random.shuffle(self.xs)
+=======
+        train_size = .8
+>>>>>>> b36ca24dfa2e874547d8fc5dd7239a58ac8f6960
         if test:
             self.xs = self.xs[:int(self.xs.shape[0]*train_size)]
             self.ys = self.ys[:int(self.ys.shape[0]*train_size)]
