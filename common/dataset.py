@@ -63,8 +63,8 @@ class RFModLabeled(dataset_mixin.DatasetMixin):
         else:
             raise NotImplementedError( "No class list - not implemented" )
 
+        train_size = .8
         if test:
-            train_size = .8
             self.xs = self.xs[:int(self.xs.shape[0]*train_size)]
             self.ys = self.ys[:int(self.ys.shape[0]*train_size)]
         else:
