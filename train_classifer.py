@@ -1,13 +1,12 @@
 import numpy as np
-# import matplotlib.pyplot as plt
-from os.path import isfile
-
+import os, sys
 import argparse
 
 import chainer
 import chainer.functions as F
 import chainer.links as L
 from chainer import training
+from common.dataset import Dataset, LabeledDataset
 from chainer.training import extensions
 from chainer.datasets import get_mnist
 from chainer import serializers
@@ -45,6 +44,7 @@ class Alex(chainer.Chain):
         h = F.dropout(F.relu(self.fc6(h)))
         h = F.dropout(F.relu(self.fc7(h)))
         h = self.fc8(h)
+
         return h
 
 
@@ -56,22 +56,26 @@ parser.add_argument('--epoch', '-e', type=int, default=20,
                     help='Number of sweeps over the dataset to train')
 parser.add_argument('--gpu', '-g', type=int, default=-1,
                     help='GPU ID (negative value indicates CPU)')
-parser.add_argument('--out', '-o', default='result',
+parser.add_argument('--out', '-o', default='result_classifier',
                     help='Directory to output the result')
 parser.add_argument('--unit', '-u', type=int, default=1000,
                     help='Number of units')
 args = parser.parse_args()
 
 
+if not os.path.exists(args.out):
+    os.makedirs(args.out)
 
 ###### SETUP DATASET #####
-RFdata_train = dataset.RFModLabeled(noise_level=10, test=False)
-RFdata_test = dataset.RFModLabeled(noise_level=10, test=True)
+noise_level = 0 
+RFdata_train = dataset.RFModLabeled(noise_level=noise_level, test=False)
+RFdata_test = dataset.RFModLabeled(noise_level=noise_level, test=True)
 
-RFdata_train.xs /= float(np.max(RFdata_train.xs))
-RFdata_test.xs /= float(np.max(RFdata_test.xs))
+print np.max(RFdata_train.xs)
+# RFdata_train.xs /= float(np.max(RFdata_train.xs))
+# RFdata_test.xs /= float(np.max(RFdata_test.xs))
 
-num_classes = 11#list(set(list(RFdata_train.ys)))
+num_classes = np.unique(RFdata_train.ys).shape[0]
 
 RFdata_train = chainer.datasets.TupleDataset(RFdata_train.xs, RFdata_train.ys)
 RFdata_test = chainer.datasets.TupleDataset(RFdata_test.xs, RFdata_test.ys)
@@ -83,7 +87,7 @@ if args.gpu >= 0:
 	chainer.cuda.get_device_from_id(args.gpu).use()
 	model.to_gpu()
 
-optimizer = chainer.optimizers.Adam(0.00003)
+optimizer = chainer.optimizers.Adam(alpha=0.000001, beta1=0.0, beta2=.8)
 optimizer.setup(model)
 train_iter = chainer.iterators.SerialIterator(RFdata_train, args.batchsize)
 test_iter = chainer.iterators.SerialIterator(RFdata_test, args.batchsize,
@@ -98,7 +102,7 @@ trainer.extend(extensions.PrintReport(
 trainer.extend(extensions.ProgressBar())
 trainer.run()
 
-serializers.save_npz('saved_models_and_results/main_classifer_greaterthan10_regularized.npz', model)
+serializers.save_npz(os.path.join(args.out, 'main_classifer_greaterthan10_regularized.npz'), model)
 
 x, y = RFdata_test._datasets[0], RFdata_test._datasets[1]
 xp = np if args.gpu < 0 else cupy
@@ -118,7 +122,7 @@ for i in range(0, len(x), args.batchsize):
 chainer.config.train = True
 
 
-np.savez('saved_models_and_results/pred_ys__main_classifer_greaterthan10_regularized.npz', pred_ys = chainer.cuda.to_cpu(pred_ys))
+np.savez(os.path.join(args.out,'pred_ys__main_classifer_greaterthan10_regularized.npz'), pred_ys = chainer.cuda.to_cpu(pred_ys))
 
 cm = metrics.confusion_matrix(chainer.cuda.to_cpu(y), chainer.cuda.to_cpu(pred_ys))
 print cm

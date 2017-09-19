@@ -90,8 +90,9 @@ class RFModLabeled(dataset_mixin.DatasetMixin):
 
         np.random.seed(10)
         train_size = .8
-        np.random.shuffle(self.ys)
-        np.random.shuffle(self.xs)
+        idx = np.random.permutation(self.xs.shape[0])
+        self.xs = self.xs[idx]
+        self.ys = self.ys[idx]
         if test:
             self.xs = self.xs[int(self.xs.shape[0]*train_size):]
             self.ys = self.ys[int(self.ys.shape[0]*train_size):]
