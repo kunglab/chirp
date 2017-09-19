@@ -9,6 +9,8 @@ def record_setting(out):
     if not os.path.exists(out):
         os.mkdir(out)
     subprocess.call("cp *.py %s" % out, shell=True)
+    subprocess.call("cp -r common %s" % out, shell=True)
+    subprocess.call("cp -r dragan %s" % out, shell=True)
 
     with open(out + "/command.txt", "w") as f:
         f.write(" ".join(sys.argv) + "\n")
