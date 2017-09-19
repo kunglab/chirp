@@ -48,17 +48,19 @@ class Cifar10Dataset(dataset_mixin.DatasetMixin):
         return self.ims[i]
 
 class RFModLabeled(dataset_mixin.DatasetMixin):
-    def __init__(self, class_set=None, test=False):
+    def __init__(self, class_set=None, noise_level=None, test=False):
         if not os.path.exists('data/modlabels'):
             os.makedirs('data/modlabels')
             data_urls = ['https://www.dropbox.com/s/ycc1dvb7u6y8eqj/mod_data.npz?dl=1',
-                         'https://www.dropbox.com/s/r4zl15zo7yg29yf/rf_raw.npz?dl=1']
+                         'https://www.dropbox.com/s/r4zl15zo7yg29yf/rf_raw.npz?dl=1', 
+                         'https://www.dropbox.com/s/x6adppfswdd7q7l/snr_data.npz?dl=1']
             for url in data_urls:
                 download_file('data/modlabels', url)
 
         self.xs = np.load('data/modlabels/rf_raw.npz')['arr_0']
         self.xs = self.xs.reshape(self.xs.shape[0], 1, self.xs.shape[1], self.xs.shape[2])
         self.str_ys = np.load('data/modlabels/mod_data.npz')['arr_0']
+        self.snr_labels = np.load('data/modlabels/snr_data.npz')['arr_0']
         class_unique = np.arange(np.unique(self.str_ys).shape[0])
         assert class_unique.shape[0] == 11, "Not enough classes"
         self.label_map = zip(np.unique(self.str_ys), class_unique)
@@ -66,6 +68,15 @@ class RFModLabeled(dataset_mixin.DatasetMixin):
         for i,t in enumerate(np.unique(self.str_ys)):
             idx = np.where(self.str_ys == t)[0]
             self.ys[idx] = i
+        
+        if noise_level != None:
+            idx = np.where(self.snr_labels >= noise_level)[0]
+            print idx
+            self.xs = self.xs[idx]
+            self.ys = self.ys[idx]
+            self.str_ys = self.str_ys[idx]
+        print self.xs.shape
+
 
         if class_set != None:
             self.new_ys = []
