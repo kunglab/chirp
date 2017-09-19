@@ -48,7 +48,7 @@ class Cifar10Dataset(dataset_mixin.DatasetMixin):
         return self.ims[i]
 
 class RFModLabeled(dataset_mixin.DatasetMixin):
-    def __init__(self, class_set=None, noise_level=None, test=False):
+    def __init__(self, class_set=None, noise_levels=None, test=False):
         if not os.path.exists('data/modlabels'):
             os.makedirs('data/modlabels')
             data_urls = ['https://www.dropbox.com/s/ycc1dvb7u6y8eqj/mod_data.npz?dl=1',
@@ -69,12 +69,19 @@ class RFModLabeled(dataset_mixin.DatasetMixin):
             idx = np.where(self.str_ys == t)[0]
             self.ys[idx] = i
         
-        if noise_level != None:
-            idx = np.where(self.snr_labels >= noise_level)[0]
-            print idx
-            self.xs = self.xs[idx]
-            self.ys = self.ys[idx]
-            self.str_ys = self.str_ys[idx]
+        if noise_levels is not None:
+            self.new_xs = []
+            self.new_ys = []
+            self.new_str_ys = []
+            for nl in noise_levels:
+                idx = np.where(self.snr_labels == nl)[0]
+                self.new_xs.append(self.xs[idx])
+                self.new_ys.append(self.ys[idx])
+                self.new_str_ys.append(self.str_ys[idx])
+        self.xs = np.vstack((self.new_xs))
+        self.ys = np.hstack((self.new_ys))
+        self.str_ys = np.hstack((self.str_ys))
+
         print self.xs.shape
 
 
@@ -89,7 +96,7 @@ class RFModLabeled(dataset_mixin.DatasetMixin):
             self.ys = np.hstack((self.new_ys))
 
         np.random.seed(10)
-        train_size = .8
+        train_size = .6
         idx = np.random.permutation(self.xs.shape[0])
         self.xs = self.xs[idx]
         self.ys = self.ys[idx]
