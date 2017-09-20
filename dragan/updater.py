@@ -69,6 +69,7 @@ class LabeledUpdater(chainer.training.StandardUpdater):
         self.gp_lam = kwargs.pop('gp_lam')
         self.adv_lam = kwargs.pop('adv_lam')
         self.class_error_f = kwargs.pop('class_error_f')
+        self.n_labels = kwargs.pop('n_labels')
         super(LabeledUpdater, self).__init__(*args, **kwargs)
     
     def update_core(self):
@@ -93,10 +94,10 @@ class LabeledUpdater(chainer.training.StandardUpdater):
         yh_fake, yh_fake_class = self.dis(x_fake)
         yh_real, yh_real_class = self.dis(x_real)
 
-        y_fake_class = F.reshape(z[:, -1, 0, 0], (-1, 1))
-        y_real_class = xp.asarray(y).astype('f').reshape(-1, 1)
+        y_fake_class = F.reshape(z[:, -self.n_labels:, 0, 0], (-1, self.n_labels))
+        y_real_class = xp.asarray(y).astype('f').reshape(-1, self.n_labels)
 
-        loss_g_class = self.class_error_f(y_fake_class, yh_fake_class)
+        loss_g_class = self.class_error_f(yh_fake_class, y_fake_class)
         loss_gen = self.adv_lam*(F.sum(F.softplus(-yh_fake)) / batchsize) + loss_g_class
 
         self.gen.cleargrads()
@@ -105,7 +106,7 @@ class LabeledUpdater(chainer.training.StandardUpdater):
 
         x_fake.unchain_backward()
 
-        loss_d_class = self.class_error_f(y_real_class, yh_real_class)
+        loss_d_class = self.class_error_f(yh_real_class, y_real_class)
 
         y_mid = F.sigmoid(self.dis(x_perturb)[0])
         dydx = self.dis.differentiable_backward(xp.ones_like(y_mid.data))
