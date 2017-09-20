@@ -15,10 +15,10 @@ sys.path.append(os.path.dirname(__file__))
 
 from dragan.updater import LabeledUpdater
 from common.dataset import Dataset, LabeledDataset
-from common.evaluation import rfmod_generate, rfmod_generate_light
+from common.evaluation import sample_generate, sample_generate_light
 from common.record import record_setting
 import common.net
-import dataset
+from tftb.generators import amgauss, fmlin
 
 def make_optimizer(model, alpha, beta1, beta2):
     optimizer = chainer.optimizers.Adam(alpha=alpha, beta1=beta1, beta2=beta2)
@@ -48,37 +48,41 @@ record_setting(args.out)
 report_keys = ['loss_dis', 'loss_gen', 'loss_gen_c', 'loss_dis_c', 'loss_gp']
 
 
-noise_levels = range(-18, 20, 2)
-train_dataset = dataset.RFModLabeled(noise_levels=noise_levels, test=False)
-num_classes = np.unique(train_dataset.ys).shape[0]
+# Set up dataset
+num_samp = 2**13
+z = fmlin(num_samp, 0.01, .1)[0]
+num_amps = 5.
+amps = np.linspace(1./num_amps, 1., num_amps)
+num_samp = 2**13
+z = fmlin(num_samp, 0.01, .1)[0]
+zs = np.array([z*amp for amp in amps])
+#zr = np.array([zi.real for zi in z]).reshape(1, 1, 1, -1)
 
-train_max = np.max(np.abs(train_dataset.xs))
-train_dataset.xs /= train_max
-# make 1-hot (-1, 1)
-train_dataset.ys = F.embed_id(train_dataset.ys, np.identity(num_classes, dtype=np.float32)).data
-train_dataset.ys[train_dataset.ys < 1] = -1
+xs = []
+ys = []
+for i, z in enumerate(zs):
+    zr = np.array([[zi.real, zi.imag] for zi in z]).T.reshape(1, 1, 2, -1)
+    x = F.im2col(Variable(zr), ksize=(1, 256)).data
+    x = x.transpose(3, 0, 2, 1)
+    xs.append(x)
+    ys.append(np.array([amps[i]]*x.shape[0]))
+xs = np.vstack((xs))
+ys = np.hstack((ys)) ## labels
+train_dataset = LabeledDataset(xs, ys)
 train_iter = chainer.iterators.SerialIterator(train_dataset, args.batchsize)
 
-def make_hidden(n_hidden, batchsize):
+def make_amp_hidden(n_hidden, batchsize):
     zs = np.random.randn(batchsize, n_hidden, 1, 1).astype(np.float32)
-    ys = np.random.randint(0, num_classes, batchsize, dtype=np.int32)
-    label_zs = F.embed_id(ys, np.identity(num_classes, dtype=np.float32)).data
-    label_zs[label_zs < 1] = -1
-    label_zs = label_zs.reshape(label_zs.shape[0], label_zs.shape[1], 1, 1)
-    return np.concatenate((zs, label_zs), axis=1)
+    amp_zs = np.random.uniform(0.2, 1.0, (batchsize, 1, 1, 1)).astype(np.float32)
+    return np.concatenate((zs, amp_zs), axis=1)
 
-def loss_sigmoid_cross_entropy_with_logits(x, t):
-    # print 'pred: ', x.data[0]
-    # print 'real: ', t[0]
-    # print
-    return F.average(F.clip(x, 0.0, 1e10) - x*t + F.softplus(-x))
 
-sample_width = train_dataset.xs.shape[3]
-n_hidden = 32
-make_hidden_f = partial(make_hidden, n_hidden)
+sample_width = 256
+n_hidden = 5
+make_hidden_f = partial(make_amp_hidden, n_hidden)
 generator = common.net.DCGANGenerator(make_hidden_f, n_hidden=make_hidden_f(1).shape[1],
                                       bottom_width=sample_width/8)
-discriminator = common.net.LabeledDiscriminator(bottom_width=sample_width/8, n_labels=num_classes)
+discriminator = common.net.LabeledDiscriminator(bottom_width=sample_width/8)
 models = []
 models = [generator, discriminator]
 if args.gpu >= 0:
@@ -97,8 +101,7 @@ updater = LabeledUpdater(**{
     'device': args.gpu,
     'gp_lam': args.gp_lam,
     'adv_lam': args.adv_lam,
-    'class_error_f': loss_sigmoid_cross_entropy_with_logits,
-    'n_labels': make_hidden_f(1).shape[1] - n_hidden
+    'class_error_f': F.mean_absolute_error
 })
 trainer = training.Trainer(updater, (args.max_iter, 'iteration'), out=args.out)
 
@@ -111,11 +114,9 @@ trainer.extend(extensions.PrintReport(report_keys), trigger=(args.display_interv
 trainer.extend(extensions.ProgressBar(update_interval=10))
 
 # visualization functions
-trainer.extend(rfmod_generate(generator, discriminator, args.out, train_max=train_max),
-               trigger=(args.evaluation_interval, 'iteration'),
+trainer.extend(sample_generate(generator, args.out), trigger=(args.evaluation_interval, 'iteration'),
                priority=extension.PRIORITY_WRITER)
-trainer.extend(rfmod_generate_light(generator, discriminator, args.out, train_max=train_max),
-               trigger=(args.evaluation_interval // 2, 'iteration'),
+trainer.extend(sample_generate_light(generator, args.out), trigger=(args.evaluation_interval // 10, 'iteration'),
                priority=extension.PRIORITY_WRITER)
 
 # Run the training

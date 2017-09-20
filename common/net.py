@@ -192,7 +192,7 @@ class WGANDiscriminator(chainer.Chain):
 
 
 class LabeledDiscriminator(chainer.Chain):
-    def __init__(self, bottom_width=16, ch=512, wscale=0.02, output_dim=1, label_dim=1):
+    def __init__(self, bottom_width=16, ch=512, wscale=0.02, output_dim=1, n_labels=1):
         w = chainer.initializers.Normal(wscale)
         self.bottom_width = bottom_width
         self.ch = ch
@@ -206,7 +206,7 @@ class LabeledDiscriminator(chainer.Chain):
             self.c3 = L.Convolution2D(ch // 2, ch // 1, (1, 4), (1, 2), (0, 1), initialW=w)
             self.c3_0 = L.Convolution2D(ch // 1, ch // 1, (1, 3), 1, (0, 1), initialW=w)
             self.l4 = L.Linear(2 * bottom_width * ch, output_dim, initialW=w)
-            self.l4_1 = L.Linear(2 * bottom_width * ch, label_dim, initialW=w)
+            self.l4_1 = L.Linear(2 * bottom_width * ch, n_labels, initialW=w)
 
     def __call__(self, x):
         self.x = x
@@ -221,7 +221,7 @@ class LabeledDiscriminator(chainer.Chain):
     
     def differentiable_backward(self, x):
         g = backward_linear(self.h6, x, self.l4)
-        g += backward_linear(self.h6, x, self.l4_1)
+        #g += backward_linear(self.h6, x, self.l4_1)
         g = F.reshape(g, (x.shape[0], self.ch, 2, self.bottom_width))
         g = backward_leaky_relu(self.h6, g, 0.2)
         g = backward_convolution(self.h5, g, self.c3_0)
