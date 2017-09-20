@@ -67,9 +67,9 @@ if not os.path.exists(args.out):
     os.makedirs(args.out)
 
 ###### SETUP DATASET #####
-noise_level = 0 
-RFdata_train = dataset.RFModLabeled(noise_level=noise_level, test=False)
-RFdata_test = dataset.RFModLabeled(noise_level=noise_level, test=True)
+noise_levels = range(-18, 20, 2)
+RFdata_train = dataset.RFModLabeled(noise_levels=noise_levels, test=False)
+RFdata_test = dataset.RFModLabeled(noise_levels=noise_levels, test=True)
 
 print np.max(RFdata_train.xs)
 # RFdata_train.xs /= float(np.max(RFdata_train.xs))
@@ -87,7 +87,7 @@ if args.gpu >= 0:
 	chainer.cuda.get_device_from_id(args.gpu).use()
 	model.to_gpu()
 
-optimizer = chainer.optimizers.Adam(alpha=0.000001, beta1=0.0, beta2=.8)
+optimizer = chainer.optimizers.Adam(alpha=0.0001, beta1=0.0, beta2=.8)
 optimizer.setup(model)
 train_iter = chainer.iterators.SerialIterator(RFdata_train, args.batchsize)
 test_iter = chainer.iterators.SerialIterator(RFdata_test, args.batchsize,
@@ -117,7 +117,7 @@ for i in range(0, len(x), args.batchsize):
     y_pred = model.predictor(x_batch)
     acc = model.accfun(y_pred, y_batch)
     acc = chainer.cuda.to_cpu(acc.data)
-    print "Accuracy: ", acc
+    # print "Accuracy: ", acc
     pred_ys[i:i + args.batchsize] = np.argmax(y_pred._data[0], axis=1)
 chainer.config.train = True
 
