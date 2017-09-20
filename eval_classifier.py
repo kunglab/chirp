@@ -73,7 +73,7 @@ args = parser.parse_args()
 
 
 ###### SETUP DATASET #####
-noise_levels = [-18, 0]
+noise_levels = range(-18,20,2)
 all_accs = []
 
 for noise_level in noise_levels:
@@ -137,10 +137,13 @@ for noise_level in noise_levels:
     all_accs.append(overall_acc)
 
 
+plt.figure()
 plt.plot(noise_levels, all_accs)
 plt.xlabel('Evaluation SNR')
 plt.ylabel('Classification Accuracy')
 plt.title('Classification Accuracy for Different Evaluation SNRs')
+plt.grid()
+plt.ylim([0,1])
 plt.savefig(os.path.join(args.out,'classification_acc_different_snrs_200epochs.png'))
 
 
