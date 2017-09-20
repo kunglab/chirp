@@ -87,7 +87,7 @@ if args.gpu >= 0:
 	chainer.cuda.get_device_from_id(args.gpu).use()
 	model.to_gpu()
 
-optimizer = chainer.optimizers.Adam(alpha=0.0001, beta1=0.0, beta2=.8)
+optimizer = chainer.optimizers.Adam(alpha=0.000001, beta1=0.0, beta2=.8)
 optimizer.setup(model)
 train_iter = chainer.iterators.SerialIterator(RFdata_train, args.batchsize)
 test_iter = chainer.iterators.SerialIterator(RFdata_test, args.batchsize,
