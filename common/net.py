@@ -170,25 +170,6 @@ class WGANDiscriminator(chainer.Chain):
         self.h5 = F.leaky_relu(self.c3(self.h4))
         self.h6 = F.leaky_relu(self.c3_0(self.h5))
         return self.l4(self.h6)
-    
-    def layer_output(self, x, layer):
-        h = F.leaky_relu(self.c0(x))
-        if layer == 'c0':
-            return h
-        h = F.leaky_relu(self.c1(h))
-        h = F.leaky_relu(self.c1_0(h))
-        if layer == 'c1':
-            return h
-        h = F.leaky_relu(self.c2(h))
-        h = F.leaky_relu(self.c2_0(h))
-        if layer == 'c2':
-            return h
-        h = F.leaky_relu(self.c3(h))
-        h = F.leaky_relu(self.c3_0(h))
-        if layer == 'c3':
-            return h
-        return self.l4(h)
- 
 
     def differentiable_backward(self, x):
         g = backward_linear(self.h6, x, self.l4)
@@ -208,6 +189,56 @@ class WGANDiscriminator(chainer.Chain):
         g = backward_leaky_relu(self.h0, g, 0.2)
         g = backward_convolution(self.x, g, self.c0)
         return g
+
+
+class LabeledDiscriminator(chainer.Chain):
+    def __init__(self, bottom_width=16, ch=512, wscale=0.02, output_dim=1, label_dim=1):
+        w = chainer.initializers.Normal(wscale)
+        self.bottom_width = bottom_width
+        self.ch = ch
+        super(LabeledDiscriminator, self).__init__()
+        with self.init_scope():
+            self.c0 = L.Convolution2D(1, ch // 8, (1, 3), 1, (0, 1), initialW=w)
+            self.c1 = L.Convolution2D(ch // 8, ch // 4, (1, 4), (1, 2), (0, 1), initialW=w)
+            self.c1_0 = L.Convolution2D(ch // 4, ch // 4, (1, 3), 1, (0, 1), initialW=w)
+            self.c2 = L.Convolution2D(ch // 4, ch // 2, (1, 4), (1, 2), (0, 1), initialW=w)
+            self.c2_0 = L.Convolution2D(ch // 2, ch // 2, (1, 3), 1, (0, 1), initialW=w)
+            self.c3 = L.Convolution2D(ch // 2, ch // 1, (1, 4), (1, 2), (0, 1), initialW=w)
+            self.c3_0 = L.Convolution2D(ch // 1, ch // 1, (1, 3), 1, (0, 1), initialW=w)
+            self.l4 = L.Linear(2 * bottom_width * ch, output_dim, initialW=w)
+            self.l4_1 = L.Linear(2 * bottom_width * ch, label_dim, initialW=w)
+
+    def __call__(self, x):
+        self.x = x
+        self.h0 = F.leaky_relu(self.c0(self.x))
+        self.h1 = F.leaky_relu(self.c1(self.h0))
+        self.h2 = F.leaky_relu(self.c1_0(self.h1))
+        self.h3 = F.leaky_relu(self.c2(self.h2))
+        self.h4 = F.leaky_relu(self.c2_0(self.h3))
+        self.h5 = F.leaky_relu(self.c3(self.h4))
+        self.h6 = F.leaky_relu(self.c3_0(self.h5))
+        return self.l4(self.h6), self.l4_1(self.h6)
+    
+    def differentiable_backward(self, x):
+        g = backward_linear(self.h6, x, self.l4)
+        g += backward_linear(self.h6, x, self.l4_1)
+        g = F.reshape(g, (x.shape[0], self.ch, 2, self.bottom_width))
+        g = backward_leaky_relu(self.h6, g, 0.2)
+        g = backward_convolution(self.h5, g, self.c3_0)
+        g = backward_leaky_relu(self.h5, g, 0.2)
+        g = backward_convolution(self.h4, g, self.c3)
+        g = backward_leaky_relu(self.h4, g, 0.2)
+        g = backward_convolution(self.h3, g, self.c2_0)
+        g = backward_leaky_relu(self.h3, g, 0.2)
+        g = backward_convolution(self.h2, g, self.c2)
+        g = backward_leaky_relu(self.h2, g, 0.2)
+        g = backward_convolution(self.h1, g, self.c1_0)
+        g = backward_leaky_relu(self.h1, g, 0.2)
+        g = backward_convolution(self.h0, g, self.c1)
+        g = backward_leaky_relu(self.h0, g, 0.2)
+        g = backward_convolution(self.x, g, self.c0)
+        return g
+
 
 
 class Alex(chainer.Chain):
