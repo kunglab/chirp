@@ -47,8 +47,8 @@ n_hidden=5
 make_hidden_f = partial(make_amp_hidden, n_hidden)
 generator = common.net.DCGANGenerator(make_hidden_f, n_hidden=n_hidden+1, bottom_width=sample_width/8)
 discriminator = common.net.LabeledDiscriminator(bottom_width=sample_width/8)
-serializers.load_npz('results/amp_labeled/DCGANGenerator_30000.npz', generator)
-serializers.load_npz('results/amp_labeled/LabeledDiscriminator_30000.npz', discriminator)
+serializers.load_npz('results/amp_labeled/DCGANGenerator_40000.npz', generator)
+serializers.load_npz('results/amp_labeled/LabeledDiscriminator_40000.npz', discriminator)
 if args.gpu >= 0:
     generator.to_gpu()
     discriminator.to_gpu()
