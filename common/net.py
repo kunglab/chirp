@@ -9,6 +9,7 @@ from chainer import utils
 from chainer.utils import type_check
 import chainer.functions as F
 import chainer.links as L
+from chainer.initializers import GlorotNormal, HeNormal
 from chainer import cuda
 import numpy as np
 
@@ -242,9 +243,9 @@ class LabeledDiscriminator(chainer.Chain):
 
 
 class Alex(chainer.Chain):
-    def __init__(self, z_dim=128):
+    def __init__(self, output_dim):
         super(Alex, self).__init__()
-        self.z_dim = z_dim
+        self.output_dim = output_dim
         with self.init_scope():
             self.conv1 = L.Convolution2D(None,  96, (1, 3), 1, (0, 1))
             self.conv2 = L.Convolution2D(None, 256, (1, 3), 1, (0, 1))
@@ -253,7 +254,7 @@ class Alex(chainer.Chain):
             self.conv5 = L.Convolution2D(None, 256, (1, 3), 1, (0, 1))
             self.fc6 = L.Linear(None, 4096)
             self.fc7 = L.Linear(None, 4096)
-            self.fc8 = L.Linear(None, z_dim)
+            self.fc8 = L.Linear(None, output_dim)
 
     def __call__(self, x):
         h = F.max_pooling_2d(F.local_response_normalization(
@@ -266,5 +267,24 @@ class Alex(chainer.Chain):
         h = F.dropout(F.relu(self.fc6(h)))
         h = F.dropout(F.relu(self.fc7(h)))
         h = self.fc8(h)
+
         return h
 
+class VTCNN2(chainer.Chain):
+    def __init__(self, output_dim, dr=.5):
+        super(VTCNN2, self).__init__()
+        self.output_dim = output_dim
+        self.dr = dr
+        with self.init_scope():
+            self.conv1 = L.Convolution2D(None,  256, (1, 3), 1, (0, 1), initialW=GlorotNormal())
+            self.conv2 = L.Convolution2D(None, 80, (2, 3), 1, (0, 1), initialW=GlorotNormal())
+            self.fc3 = L.Linear(None, 256, initialW=HeNormal())
+            self.fc4 = L.Linear(None, output_dim, initialW=HeNormal() )
+
+    def __call__(self, x):
+        h = F.dropout(F.relu(self.conv1(x)) , ratio=self.dr)
+        h = F.dropout(F.relu(self.conv2(h)) , ratio=self.dr)
+        h = F.dropout(F.relu(self.fc3(h)), ratio=self.dr)
+        h = self.fc4(h)
+
+        return h
