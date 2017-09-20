@@ -35,7 +35,6 @@ parser.add_argument('--out', '-o', default='result', help='Directory to output t
 parser.add_argument('--snapshot_interval', type=int, default=10000, help='Interval of snapshot')
 parser.add_argument('--evaluation_interval', type=int, default=10000, help='Interval of evaluation')
 parser.add_argument('--display_interval', type=int, default=100, help='Interval of displaying log to console')
-parser.add_argument('--n_dis', type=int, default=5, help='number of discriminator update per generator update')
 parser.add_argument('--gamma', type=float, default=0.5, help='hyperparameter gamma')
 parser.add_argument('--lam', type=float, default=10, help='gradient penalty')
 parser.add_argument('--adam_alpha', type=float, default=0.0002, help='alpha in Adam optimizer')
@@ -45,12 +44,11 @@ parser.add_argument('--output_dim', type=int, default=256, help='output dimensio
 
 args = parser.parse_args()
 record_setting(args.out)
-report_keys = ["loss_dis", "loss_gen", "loss_amp_gen", "loss_amp_dis"]
+report_keys = ["loss_dis", "loss_gen", "loss_gen_c", "loss_dis_c"]
 
 
 # Set up dataset
 num_samp = 2**13
-sample_width = 512
 z = fmlin(num_samp, 0.01, .1)[0]
 num_amps = 5.
 amps = np.linspace(1./num_amps, 1., num_amps)
@@ -58,7 +56,6 @@ num_samp = 2**13
 z = fmlin(num_samp, 0.01, .1)[0]
 zs = np.array([z*amp for amp in amps])
 #zr = np.array([zi.real for zi in z]).reshape(1, 1, 1, -1)
-
 
 xs = []
 ys = []
@@ -90,11 +87,9 @@ sample_width=256
 n_hidden=5
 make_hidden_f = partial(make_amp_hidden, n_hidden)
 generator = common.net.DCGANGenerator(make_hidden_f, n_hidden=n_hidden+1, bottom_width=sample_width/8)
-discriminator = common.net.WGANDiscriminator(bottom_width=sample_width/8)
-amp_clf = common.net.Alex(1)
-models = [generator, discriminator, amp_clf]
+discriminator = common.net.LabeledDiscriminator(bottom_width=sample_width/8)
+models = [generator, discriminator]
 report_keys.append("loss_gp")
-updater_args["n_dis"] = args.n_dis
 updater_args["lam"] = args.lam
 
 if args.gpu >= 0:
@@ -106,7 +101,6 @@ if args.gpu >= 0:
 # Set up optimizers
 opts["opt_gen"] = make_optimizer(generator, args.adam_alpha, args.adam_beta1, args.adam_beta2)
 opts["opt_dis"] = make_optimizer(discriminator, args.adam_alpha, args.adam_beta1, args.adam_beta2)
-opts["opt_clf"] = make_optimizer(amp_clf, args.adam_alpha, args.adam_beta1, args.adam_beta2)
 
 updater_args["optimizer"] = opts
 updater_args["models"] = models
