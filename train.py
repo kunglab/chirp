@@ -74,7 +74,7 @@ if data_set == "chirp":
     xs = np.vstack((xs))
     ys = np.hstack((ys)) ## labels
 else:  ## MOdulation RF dataset
-    train_dataset_labeled = RFModLabeled(noise_level=10, class_set=['QPSK'])
+    train_dataset_labeled = RFModLabeled(noise_levels=[10], class_set=['QPSK', 'GFSK'])
     dataset_max = np.max(train_dataset_labeled.xs)
     train_dataset_labeled.xs = train_dataset_labeled.xs/np.max(train_dataset_labeled.xs)
 
