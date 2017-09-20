@@ -80,7 +80,7 @@ class RFModLabeled(dataset_mixin.DatasetMixin):
                 self.new_str_ys.append(self.str_ys[idx])
         self.xs = np.vstack((self.new_xs))
         self.ys = np.hstack((self.new_ys))
-        self.str_ys = np.hstack((self.str_ys))
+        self.str_ys = np.hstack((self.new_str_ys))
 
         print self.xs.shape
 
