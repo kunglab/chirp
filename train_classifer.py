@@ -71,15 +71,7 @@ noise_levels = range(-18, 20, 2)
 RFdata_train = dataset.RFModLabeled(noise_levels=noise_levels, test=False)
 RFdata_test = dataset.RFModLabeled(noise_levels=noise_levels, test=True)
 
-print np.max(RFdata_train.xs)
-# RFdata_train.xs /= float(np.max(RFdata_train.xs))
-# RFdata_test.xs /= float(np.max(RFdata_test.xs))
-
 num_classes = np.unique(RFdata_train.ys).shape[0]
-
-RFdata_train = chainer.datasets.TupleDataset(RFdata_train.xs, RFdata_train.ys)
-RFdata_test = chainer.datasets.TupleDataset(RFdata_test.xs, RFdata_test.ys)
-
 
 # train model
 model = L.Classifier(Alex(num_classes))
@@ -87,7 +79,7 @@ if args.gpu >= 0:
 	chainer.cuda.get_device_from_id(args.gpu).use()
 	model.to_gpu()
 
-optimizer = chainer.optimizers.Adam(alpha=0.0001, beta1=0.0, beta2=.8)
+optimizer = chainer.optimizers.Adam(alpha=0.00001, beta1=0.0, beta2=.8)
 optimizer.setup(model)
 train_iter = chainer.iterators.SerialIterator(RFdata_train, args.batchsize)
 test_iter = chainer.iterators.SerialIterator(RFdata_test, args.batchsize,
@@ -104,7 +96,7 @@ trainer.run()
 
 serializers.save_npz(os.path.join(args.out, 'main_classifer_greaterthan10_regularized.npz'), model)
 
-x, y = RFdata_test._datasets[0], RFdata_test._datasets[1]
+x, y = RFdata_test.xs, RFdata_test.ys
 xp = np if args.gpu < 0 else cupy
 
 pred_ys = xp.zeros(y.shape)
@@ -130,22 +122,6 @@ print cm
 cor = np.sum(np.diag(cm))
 ncor = np.sum(cm) - cor
 print "Overall Accuracy: ", cor / float(cor+ncor)
-
-
-
-assert False
-
-
-chainer.config.train = False
-pred = model.predictor(chainer.Variable(cupy.asarray(RFdata_test._datasets[0])))
-acc = model.accfun(pred, chainer.Variable(cupy.asarray(RFdata_test._datasets[1])))
-acc = chainer.cuda.to_cpu(acc.data)
-print "Accuracy: ", acc
-chainer.config.train = True
-
-
-
-
 
 
 

@@ -73,25 +73,15 @@ args = parser.parse_args()
 
 
 ###### SETUP DATASET #####
-noise_levels = [-18, 0]
+noise_levels = range(-18,20,2)
 all_accs = []
 
 for noise_level in noise_levels:
 
-
-
     RFdata_train = dataset.RFModLabeled(noise_levels=[noise_level], test=False)
     RFdata_test = dataset.RFModLabeled(noise_levels=[noise_level], test=True)
 
-    print np.max(RFdata_train.xs)
-    # RFdata_train.xs /= float(np.max(RFdata_train.xs))
-    # RFdata_test.xs /= float(np.max(RFdata_test.xs))
-
     num_classes = np.unique(RFdata_train.ys).shape[0]
-
-    RFdata_train = chainer.datasets.TupleDataset(RFdata_train.xs, RFdata_train.ys)
-    RFdata_test = chainer.datasets.TupleDataset(RFdata_test.xs, RFdata_test.ys)
-
 
     # train model
     model = L.Classifier(Alex(num_classes))
@@ -103,7 +93,7 @@ for noise_level in noise_levels:
     serializers.load_npz(args.model, model)
 
 
-    x, y = RFdata_test._datasets[0], RFdata_test._datasets[1]
+    x, y = RFdata_test.xs, RFdata_test.ys
     xp = np if args.gpu < 0 else cupy
 
     pred_ys = xp.zeros(y.shape)
@@ -121,7 +111,6 @@ for noise_level in noise_levels:
     chainer.config.train = True
 
 
-    # np.savez(os.path.join(args.out,'pred_ys__model_%s__noise_%d.npz' % (args.model.replace('/','_'), noise_level)), pred_ys = chainer.cuda.to_cpu(pred_ys))
 
     cm = metrics.confusion_matrix(chainer.cuda.to_cpu(y), chainer.cuda.to_cpu(pred_ys))
     print cm
@@ -137,17 +126,9 @@ for noise_level in noise_levels:
     all_accs.append(overall_acc)
 
 
+plt.figure()
 plt.plot(noise_levels, all_accs)
 plt.xlabel('Evaluation SNR')
 plt.ylabel('Classification Accuracy')
 plt.title('Classification Accuracy for Different Evaluation SNRs')
 plt.savefig(os.path.join(args.out,'classification_acc_different_snrs_200epochs.png'))
-
-
-
-
-
-
-
-
-
