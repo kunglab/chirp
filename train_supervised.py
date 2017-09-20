@@ -63,18 +63,18 @@ def make_hidden(n_hidden, batchsize):
     zs = np.random.randn(batchsize, n_hidden, 1, 1).astype(np.float32)
     ys = np.random.randint(0, num_classes, batchsize, dtype=np.int32)
     label_zs = F.embed_id(ys, np.identity(num_classes, dtype=np.float32)).data
-    #label_zs[label_zs < 1] = -1
+    label_zs[label_zs < 1] = -1
     label_zs = label_zs.reshape(label_zs.shape[0], label_zs.shape[1], 1, 1)
     return np.concatenate((zs, label_zs), axis=1)
 
 def loss_sigmoid_cross_entropy_with_logits(x, t):
-    # print 'pred: ', x
-    # print 'real: ', t
+    # print 'pred: ', x.data[0]
+    # print 'real: ', t[0]
     # print
-    return F.average(F.clip(x, 0., 1e10) - x*t + F.softplus(-x))
+    return F.average(F.clip(x, 0.0, 1e10) - x*t + F.softplus(-x))
 
 sample_width = train_dataset.xs.shape[3]
-n_hidden = 5
+n_hidden = 32
 make_hidden_f = partial(make_hidden, n_hidden)
 generator = common.net.DCGANGenerator(make_hidden_f, n_hidden=make_hidden_f(1).shape[1],
                                       bottom_width=sample_width/8)
