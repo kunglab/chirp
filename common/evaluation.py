@@ -30,6 +30,7 @@ def rfmod_generate_light(gen, dis, dst, train_max=1, nsamples=16, seed=0):
         x = x.reshape(x.shape[0], x.shape[2], x.shape[3])
         x = x*train_max
         yh_fake_class = chainer.cuda.to_cpu(yh_fake_class.data)
+        ones = np.arange(yh_fake_class.shape[1])
 
         fig = plt.figure(figsize=(30,15))
         for i in range(nsamples):
@@ -37,7 +38,7 @@ def rfmod_generate_light(gen, dis, dst, train_max=1, nsamples=16, seed=0):
             for j, xi in enumerate(x[i]):
                 ax.plot(xi, '-', marker=plot_markers[j])
             ax = plt.subplot(4, 8, i*2+2)
-            ax.plot(yh_fake_class[i], '-o')
+            ax.plot(ones, F.softmax(yh_fake_class[i].reshape(1, -1)).data[0], '-o')
         plt.tight_layout()
 
         preview_dir = '{}/preview'.format(dst)
@@ -64,6 +65,7 @@ def rfmod_generate(gen, dis, dst, train_max=1, nsamples=16, seed=0):
         x = x.reshape(x.shape[0], x.shape[2], x.shape[3])
         x = x*train_max
         yh_fake_class = chainer.cuda.to_cpu(yh_fake_class.data)
+        ones = np.arange(yh_fake_class.shape[1])
 
         fig = plt.figure(figsize=(30,15))
         for i in range(nsamples):
@@ -71,7 +73,7 @@ def rfmod_generate(gen, dis, dst, train_max=1, nsamples=16, seed=0):
             for j, xi in enumerate(x[i]):
                 ax.plot(xi, '-', marker=plot_markers[j])
             ax = plt.subplot(4, 8, i*2+2)
-            ax.plot(yh_fake_class[i], '-o')
+            ax.plot(ones, F.softmax(yh_fake_class[i].reshape(1, -1)).data[0], '-o')
         plt.tight_layout()
 
         preview_dir = '{}/preview'.format(dst)

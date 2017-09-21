@@ -40,8 +40,8 @@ class Updater(chainer.training.StandardUpdater):
             loss_dis = F.sum(F.softplus(-y_real)) / batchsize
             loss_dis += F.sum(F.softplus(y_fake)) / batchsize
 
-            y_mid = F.sigmoid(self.dis(x_perturb))
-            dydx = self.dis.differentiable_backward(xp.ones_like(y_mid.data))
+            y_mid = self.dis(x_perturb)
+            dydx = self.dis.differentiable_backward(y_mid)
             dydx = F.sqrt(F.sum(dydx ** 2, axis=(1, 2, 3)))
             loss_gp = self.lam * F.mean_squared_error(dydx, xp.ones_like(dydx.data))
 
@@ -96,6 +96,8 @@ class LabeledUpdater(chainer.training.StandardUpdater):
 
         y_fake_class = F.reshape(z[:, -self.n_labels:, 0, 0], (-1, self.n_labels))
         y_real_class = xp.asarray(y).astype('f').reshape(-1, self.n_labels)
+        # y_fake_class.data = y_fake_class.data.astype(xp.int32)
+        # y_real_class = y_real_class.astype(xp.int32)
 
         loss_g_class = self.class_error_f(yh_fake_class, y_fake_class)
         loss_gen = self.adv_lam*(F.sum(F.softplus(-yh_fake)) / batchsize) + loss_g_class
@@ -108,13 +110,17 @@ class LabeledUpdater(chainer.training.StandardUpdater):
 
         loss_d_class = self.class_error_f(yh_real_class, y_real_class)
 
-        y_mid = F.sigmoid(self.dis(x_perturb)[0])
-        dydx = self.dis.differentiable_backward(xp.ones_like(y_mid.data))
-        dydx = F.sqrt(F.sum(dydx ** 2, axis=(1, 2, 3)))
+        yh_perturb, yh_perturb_class = self.dis(x_perturb)
+        dydx = self.dis.differentiable_backward(xp.ones_like(yh_perturb), xp.ones_like(yh_perturb_class))
+        #dydx = self.dis.differentiable_backward(yh_perturb, yh_perturb_class)
+        #dydx = F.sqrt(F.sum(dydx ** 2))
         loss_gp = self.gp_lam * F.mean_squared_error(dydx, xp.ones_like(dydx.data))
+        #loss_gp = self.gp_lam * ((dydx - 1) ** 2)
+        #print (dydx - 1) ** 2
 
-        loss_dis  = self.adv_lam*F.sum(F.softplus(-yh_real)) / batchsize 
-        loss_dis += self.adv_lam*F.sum(F.softplus(yh_fake)) / batchsize
+
+        loss_dis  = self.adv_lam*(F.sum(F.softplus(-yh_real)) / batchsize)
+        loss_dis += self.adv_lam*(F.sum(F.softplus(yh_fake))  / batchsize)
         loss_dis += loss_d_class
         loss_dis += loss_gp
  

@@ -48,30 +48,39 @@ record_setting(args.out)
 report_keys = ['loss_dis', 'loss_gen', 'loss_gen_c', 'loss_dis_c', 'loss_gp']
 
 
-noise_levels = range(-18, 20, 2)
+noise_levels = range(6, 20, 2)
 train_dataset = dataset.RFModLabeled(noise_levels=noise_levels, test=False)
 num_classes = np.unique(train_dataset.ys).shape[0]
 
 train_max = np.max(np.abs(train_dataset.xs))
 train_dataset.xs /= train_max
-# make 1-hot (-1, 1)
+# make 1-hot
 train_dataset.ys = F.embed_id(train_dataset.ys, np.identity(num_classes, dtype=np.float32)).data
-train_dataset.ys[train_dataset.ys < 1] = -1
+#train_dataset.ys[train_dataset.ys < 1] = -1
 train_iter = chainer.iterators.SerialIterator(train_dataset, args.batchsize)
 
 def make_hidden(n_hidden, batchsize):
     zs = np.random.randn(batchsize, n_hidden, 1, 1).astype(np.float32)
     ys = np.random.randint(0, num_classes, batchsize, dtype=np.int32)
     label_zs = F.embed_id(ys, np.identity(num_classes, dtype=np.float32)).data
-    label_zs[label_zs < 1] = -1
+    #label_zs[label_zs < 1] = -1
     label_zs = label_zs.reshape(label_zs.shape[0], label_zs.shape[1], 1, 1)
-    return np.concatenate((zs, label_zs), axis=1)
+    return np.concatenate((zs, label_zs), axis=1).astype(np.float32)
+
 
 def loss_sigmoid_cross_entropy_with_logits(x, t):
+    print 'pred: ', x.data[0]
+    print 'real: ', t[0]
+    print
+    return F.average(F.clip(x, 0.0, 1e10) - x*t + F.softplus(-x))
+
+
+def loss_softmax_cross_entropy_onehot(x, t):
     # print 'pred: ', x.data[0]
     # print 'real: ', t[0]
     # print
-    return F.average(F.clip(x, 0.0, 1e10) - x*t + F.softplus(-x))
+    return F.softmax_cross_entropy(x, F.argmax(t, axis=1))
+
 
 sample_width = train_dataset.xs.shape[3]
 n_hidden = 32
@@ -97,7 +106,9 @@ updater = LabeledUpdater(**{
     'device': args.gpu,
     'gp_lam': args.gp_lam,
     'adv_lam': args.adv_lam,
-    'class_error_f': loss_sigmoid_cross_entropy_with_logits,
+    #'class_error_f': loss_sigmoid_cross_entropy_with_logits,
+    'class_error_f': loss_softmax_cross_entropy_onehot,
+    #'class_error_f': F.softmax_cross_entropy,
     'n_labels': make_hidden_f(1).shape[1] - n_hidden
 })
 trainer = training.Trainer(updater, (args.max_iter, 'iteration'), out=args.out)
