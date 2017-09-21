@@ -12,6 +12,7 @@ from chainer.datasets import get_mnist
 from chainer import serializers
 from sklearn import metrics
 
+from common.net import Alex, VTCNN2
 import cupy
 
 from common import dataset
@@ -19,35 +20,9 @@ from common import dataset
 
 ## Alex net ##
 
-class Alex(chainer.Chain):
-    def __init__(self, output_dim):
-        super(Alex, self).__init__()
-        self.output_dim = output_dim
-        with self.init_scope():
-            self.conv1 = L.Convolution2D(None,  96, (1, 3), 1, (0, 1))
-            self.conv2 = L.Convolution2D(None, 256, (1, 3), 1, (0, 1))
-            self.conv3 = L.Convolution2D(None, 384, (1, 3), 1, (0, 1))
-            self.conv4 = L.Convolution2D(None, 384, (1, 3), 1, (0, 1))
-            self.conv5 = L.Convolution2D(None, 256, (1, 3), 1, (0, 1))
-            self.fc6 = L.Linear(None, 4096)
-            self.fc7 = L.Linear(None, 4096)
-            self.fc8 = L.Linear(None, output_dim)
-
-    def __call__(self, x):
-        h = F.max_pooling_2d(F.local_response_normalization(
-            F.relu(self.conv1(x))), (1,3), stride=1)
-        h = F.max_pooling_2d(F.local_response_normalization(
-            F.relu(self.conv2(h))), (1,3), stride=1)
-        h = F.relu(self.conv3(h))
-        h = F.relu(self.conv4(h))
-        h = F.max_pooling_2d(F.relu(self.conv5(h)), 3, stride=2)
-        h = F.dropout(F.relu(self.fc6(h)))
-        h = F.dropout(F.relu(self.fc7(h)))
-        h = self.fc8(h)
-
-        return h
 
 
+model_map = {"AlexStock": Alex, "VTCNN2" : VTCNN2}
 
 parser = argparse.ArgumentParser(description='Chainer example: MNIST')
 parser.add_argument('--batchsize', '-b', type=int, default=100,
@@ -60,6 +35,8 @@ parser.add_argument('--out', '-o', default='result_classifier',
                     help='Directory to output the result')
 parser.add_argument('--unit', '-u', type=int, default=1000,
                     help='Number of units')
+parser.add_argument('--model_type', '-t', type=str, default="AlexStock",
+                    help='Which Model to run (AlexStock, VTCNN2)')
 args = parser.parse_args()
 
 
@@ -71,23 +48,19 @@ noise_levels = range(-18, 20, 2)
 RFdata_train = dataset.RFModLabeled(noise_levels=noise_levels, test=False)
 RFdata_test = dataset.RFModLabeled(noise_levels=noise_levels, test=True)
 
-print np.max(RFdata_train.xs)
-# RFdata_train.xs /= float(np.max(RFdata_train.xs))
-# RFdata_test.xs /= float(np.max(RFdata_test.xs))
-
 num_classes = np.unique(RFdata_train.ys).shape[0]
 
-RFdata_train = chainer.datasets.TupleDataset(RFdata_train.xs, RFdata_train.ys)
-RFdata_test = chainer.datasets.TupleDataset(RFdata_test.xs, RFdata_test.ys)
-
-
 # train model
-model = L.Classifier(Alex(num_classes))
+#model = L.Classifier(Alex(num_classes))
+# model = L.Classifier(VTCNN2(num_classes))
+model = L.Classifier(model_map[args.model_type](num_classes))
 if args.gpu >= 0:
 	chainer.cuda.get_device_from_id(args.gpu).use()
 	model.to_gpu()
 
-optimizer = chainer.optimizers.Adam(alpha=0.0001, beta1=0.0, beta2=.8)
+
+#optimizer = chainer.optimizers.Adam(alpha=0.0001, beta1=0.0, beta2=.9)
+optimizer = chainer.optimizers.Adam()
 optimizer.setup(model)
 train_iter = chainer.iterators.SerialIterator(RFdata_train, args.batchsize)
 test_iter = chainer.iterators.SerialIterator(RFdata_test, args.batchsize,
@@ -104,7 +77,7 @@ trainer.run()
 
 serializers.save_npz(os.path.join(args.out, 'main_classifer_greaterthan10_regularized.npz'), model)
 
-x, y = RFdata_test._datasets[0], RFdata_test._datasets[1]
+x, y = RFdata_test.xs, RFdata_test.ys
 xp = np if args.gpu < 0 else cupy
 
 pred_ys = xp.zeros(y.shape)
@@ -130,22 +103,6 @@ print cm
 cor = np.sum(np.diag(cm))
 ncor = np.sum(cm) - cor
 print "Overall Accuracy: ", cor / float(cor+ncor)
-
-
-
-assert False
-
-
-chainer.config.train = False
-pred = model.predictor(chainer.Variable(cupy.asarray(RFdata_test._datasets[0])))
-acc = model.accfun(pred, chainer.Variable(cupy.asarray(RFdata_test._datasets[1])))
-acc = chainer.cuda.to_cpu(acc.data)
-print "Accuracy: ", acc
-chainer.config.train = True
-
-
-
-
 
 
 
