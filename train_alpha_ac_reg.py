@@ -13,7 +13,7 @@ from chainer.training import extensions
 
 sys.path.append(os.path.dirname(__file__))
 
-from dragan.updater import AlphaUpdater
+from dragan.updater import AlphaACUpdater
 from common.dataset import Dataset, LabeledDataset
 from common.evaluation import encdis_generate, encdis_generate_light
 from common.record import record_setting
@@ -59,15 +59,13 @@ train_dataset.ys = F.embed_id(train_dataset.ys, np.identity(num_classes, dtype=n
 #train_dataset.ys[train_dataset.ys < 1] = -1
 train_iter = chainer.iterators.SerialIterator(train_dataset, args.batchsize)
 
+
 def make_hidden(n_hidden, batchsize):
     zs = np.random.randn(batchsize, n_hidden, 1, 1).astype(np.float32)
-    ys = np.random.randint(0, num_classes, batchsize, dtype=np.int32)
-    label_zs = F.embed_id(ys, np.identity(num_classes, dtype=np.float32)).data
-    label_zs = label_zs.reshape(label_zs.shape[0], label_zs.shape[1], 1, 1)
-    return np.concatenate((zs, label_zs), axis=1).astype(np.float32)
+    snr_zs = np.random.uniform(6.0, 18.0, (batchsize, 1, 1, 1)).astype(np.float32)
+    return np.concatenate((zs, snr_zs), axis=1)
 
-def loss_softmax_cross_entropy_onehot(x, t):
-    return F.softmax_cross_entropy(x, F.argmax(t, axis=1))
+
 
 
 sample_width = train_dataset.xs.shape[3]
@@ -85,7 +83,7 @@ if args.gpu >= 0:
     for m in models:
         m.to_gpu()
 
-updater = AlphaUpdater(**{
+updater = AlphaACUpdater(**{
     'models': models,
     'optimizer': {
         'opt_gen': make_optimizer(generator, args.adam_alpha, args.adam_beta1, args.adam_beta2),
@@ -95,7 +93,7 @@ updater = AlphaUpdater(**{
     'device': args.gpu,
     'gp_lam': args.gp_lam,
     'adv_lam': args.adv_lam,
-    'class_error_f': loss_softmax_cross_entropy_onehot,
+    'class_error_f': F.mean_absolute_error,
     'n_labels': make_hidden_f(1).shape[1] - n_hidden,
     'n_noise': n_hidden
 })
