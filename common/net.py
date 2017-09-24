@@ -220,9 +220,9 @@ class LabeledDiscriminator(chainer.Chain):
         self.h6 = F.leaky_relu(self.c3_0(self.h5))
         return self.l4(self.h6), self.l4_1(self.h6)
     
-    def differentiable_backward(self, x):
+    def differentiable_backward(self, x, xc):
         g = backward_linear(self.h6, x, self.l4)
-        #g += backward_linear(self.h6, x, self.l4_1)
+        g += backward_linear(self.h6, xc, self.l4_1)
         g = F.reshape(g, (x.shape[0], self.ch, 2, self.bottom_width))
         g = backward_leaky_relu(self.h6, g, 0.2)
         g = backward_convolution(self.h5, g, self.c3_0)

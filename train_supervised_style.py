@@ -48,12 +48,32 @@ record_setting(args.out)
 report_keys = ['loss_dis', 'loss_gen', 'loss_gen_c', 'loss_dis_c', 'loss_gp']
 
 
-noise_levels = range(6, 20, 2)
-train_dataset = dataset.RFModLabeled(noise_levels=noise_levels, test=False)
+noise_levels = [-18, 18]#range(6, 20, 2)
+train_dataset = dataset.RFModLabeled(class_set=['GFSK'], noise_levels=noise_levels, test=False)
 num_classes = np.unique(train_dataset.ys).shape[0]
+# print "HERE: ", num_classes
+# assert False
 
 train_max = np.max(np.abs(train_dataset.xs))
 train_dataset.xs /= train_max
+
+'''
+print "Xs: ", train_dataset.xs.shape
+# assert False
+
+import matplotlib.pyplot as plt
+example = train_dataset.xs[0].reshape(train_dataset.xs[0].shape[1],train_dataset.xs[0].shape[2])
+print "Example: ", example.shape
+plt.plot(example.T, '-')
+plt.show()
+
+assert False
+'''
+
+# hack just set class to 0 because only one class now
+train_dataset.ys -= train_dataset.ys[0]
+
+
 # make 1-hot
 train_dataset.ys = F.embed_id(train_dataset.ys, np.identity(num_classes, dtype=np.float32)).data
 #train_dataset.ys[train_dataset.ys < 1] = -1

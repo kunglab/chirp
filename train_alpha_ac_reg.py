@@ -13,9 +13,9 @@ from chainer.training import extensions
 
 sys.path.append(os.path.dirname(__file__))
 
-from dragan.updater import LabeledUpdater
+from dragan.updater import AlphaACUpdater
 from common.dataset import Dataset, LabeledDataset
-from common.evaluation import rfmod_generate, rfmod_generate_light
+from common.evaluation import encdis_generate, encdis_generate_light
 from common.record import record_setting
 import common.net
 import dataset
@@ -45,11 +45,11 @@ parser.add_argument('--output_dim', type=int, default=256, help='output dimensio
 
 args = parser.parse_args()
 record_setting(args.out)
-report_keys = ['loss_dis', 'loss_gen', 'loss_gen_c', 'loss_dis_c', 'loss_gp']
+report_keys = ['loss_dis', 'loss_gen', 'loss_gen_c', 'loss_dis_c', 'loss_noise', 'loss_gp']
 
 
-noise_levels = range(6, 20, 2)
-train_dataset = dataset.RFModLabeled(noise_levels=noise_levels, test=False)
+noise_levels = [6,8,16,18]#range(6, 20, 2)
+train_dataset = dataset.RFModLabeled(class_set=['8PSK'], noise_levels=noise_levels, test=False)
 num_classes = np.unique(train_dataset.ys).shape[0]
 
 train_max = np.max(np.abs(train_dataset.xs))
@@ -59,27 +59,13 @@ train_dataset.ys = F.embed_id(train_dataset.ys, np.identity(num_classes, dtype=n
 #train_dataset.ys[train_dataset.ys < 1] = -1
 train_iter = chainer.iterators.SerialIterator(train_dataset, args.batchsize)
 
+
 def make_hidden(n_hidden, batchsize):
     zs = np.random.randn(batchsize, n_hidden, 1, 1).astype(np.float32)
-    ys = np.random.randint(0, num_classes, batchsize, dtype=np.int32)
-    label_zs = F.embed_id(ys, np.identity(num_classes, dtype=np.float32)).data
-    #label_zs[label_zs < 1] = -1
-    label_zs = label_zs.reshape(label_zs.shape[0], label_zs.shape[1], 1, 1)
-    return np.concatenate((zs, label_zs), axis=1).astype(np.float32)
+    snr_zs = np.random.uniform(6.0, 18.0, (batchsize, 1, 1, 1)).astype(np.float32)
+    return np.concatenate((zs, snr_zs), axis=1)
 
 
-def loss_sigmoid_cross_entropy_with_logits(x, t):
-    print 'pred: ', x.data[0]
-    print 'real: ', t[0]
-    print
-    return F.average(F.clip(x, 0.0, 1e10) - x*t + F.softplus(-x))
-
-
-def loss_softmax_cross_entropy_onehot(x, t):
-    # print 'pred: ', x.data[0]
-    # print 'real: ', t[0]
-    # print
-    return F.softmax_cross_entropy(x, F.argmax(t, axis=1))
 
 
 sample_width = train_dataset.xs.shape[3]
@@ -87,7 +73,8 @@ n_hidden = 32
 make_hidden_f = partial(make_hidden, n_hidden)
 generator = common.net.DCGANGenerator(make_hidden_f, n_hidden=make_hidden_f(1).shape[1],
                                       bottom_width=sample_width/8)
-discriminator = common.net.LabeledDiscriminator(bottom_width=sample_width/8, n_labels=num_classes)
+discriminator = common.net.LabeledDiscriminator(bottom_width=sample_width/8,
+                                                n_labels=make_hidden_f(1).shape[1])
 models = []
 models = [generator, discriminator]
 if args.gpu >= 0:
@@ -96,7 +83,7 @@ if args.gpu >= 0:
     for m in models:
         m.to_gpu()
 
-updater = LabeledUpdater(**{
+updater = AlphaACUpdater(**{
     'models': models,
     'optimizer': {
         'opt_gen': make_optimizer(generator, args.adam_alpha, args.adam_beta1, args.adam_beta2),
@@ -106,10 +93,9 @@ updater = LabeledUpdater(**{
     'device': args.gpu,
     'gp_lam': args.gp_lam,
     'adv_lam': args.adv_lam,
-    #'class_error_f': loss_sigmoid_cross_entropy_with_logits,
-    'class_error_f': loss_softmax_cross_entropy_onehot,
-    #'class_error_f': F.softmax_cross_entropy,
-    'n_labels': make_hidden_f(1).shape[1] - n_hidden
+    'class_error_f': F.mean_absolute_error,
+    'n_labels': make_hidden_f(1).shape[1] - n_hidden,
+    'n_noise': n_hidden
 })
 trainer = training.Trainer(updater, (args.max_iter, 'iteration'), out=args.out)
 
@@ -122,10 +108,10 @@ trainer.extend(extensions.PrintReport(report_keys), trigger=(args.display_interv
 trainer.extend(extensions.ProgressBar(update_interval=10))
 
 # visualization functions
-trainer.extend(rfmod_generate(generator, discriminator, args.out, train_max=train_max),
+trainer.extend(encdis_generate(generator, discriminator, args.out, train_max=train_max),
                trigger=(args.evaluation_interval, 'iteration'),
                priority=extension.PRIORITY_WRITER)
-trainer.extend(rfmod_generate_light(generator, discriminator, args.out, train_max=train_max),
+trainer.extend(encdis_generate_light(generator, discriminator, args.out, train_max=train_max),
                trigger=(args.evaluation_interval // 2, 'iteration'),
                priority=extension.PRIORITY_WRITER)
 
