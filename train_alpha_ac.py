@@ -15,7 +15,7 @@ sys.path.append(os.path.dirname(__file__))
 
 from dragan.updater import AlphaUpdater
 from common.dataset import Dataset, LabeledDataset
-from common.evaluation import encdis_generate, encdic_generate_light
+from common.evaluation import encdis_generate, encdis_generate_light
 from common.record import record_setting
 import common.net
 import dataset
@@ -45,7 +45,7 @@ parser.add_argument('--output_dim', type=int, default=256, help='output dimensio
 
 args = parser.parse_args()
 record_setting(args.out)
-report_keys = ['loss_dis', 'loss_gen', 'loss_gen_c', 'loss_dis_c', 'loss_noise', 'loss_gp']
+report_keys = ['loss_dis', 'loss_gen', 'loss_gen_c', 'loss_dis_c', 'loss_noise', 'loss_recon', 'loss_gp']
 
 
 noise_levels = range(6, 20, 2)

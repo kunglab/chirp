@@ -161,6 +161,7 @@ class AlphaUpdater(chainer.training.StandardUpdater):
 
         yh_fake, yh_fake_z = self.dis(x_fake)
         yh_real, yh_real_z = self.dis(x_real)
+        xh_real = self.gen(yh_real_z)
         yh_fake_class = yh_fake_z[:, self.n_noise:]
         yh_fake_class.data = xp.ascontiguousarray(yh_fake_class.data)
         yh_fake_noise = yh_fake_z[:, :self.n_noise]
@@ -169,6 +170,7 @@ class AlphaUpdater(chainer.training.StandardUpdater):
         yh_real_class.data = xp.ascontiguousarray(yh_real_class.data)
         yh_real_noise = yh_real_z[:, :self.n_noise]
         yh_real_noise.data = xp.ascontiguousarray(yh_real_noise.data)
+
 
         y_fake_noise = F.reshape(z[:, :self.n_noise, 0, 0], (-1, self.n_noise))
         y_fake_class = F.reshape(z[:, self.n_noise:, 0, 0], (-1, self.n_labels))
@@ -186,6 +188,7 @@ class AlphaUpdater(chainer.training.StandardUpdater):
 
         loss_d_class = self.class_error_f(yh_real_class, y_real_class)
         loss_noise = F.mean_absolute_error(yh_fake_noise, y_fake_noise)
+        loss_recon = F.mean_absolute_error(x_real, xh_real)
 
         yh_perturb, yh_perturb_class = self.dis(x_perturb)
         dydx = self.dis.differentiable_backward(xp.ones_like(yh_perturb), xp.ones_like(yh_perturb_class))
@@ -195,6 +198,7 @@ class AlphaUpdater(chainer.training.StandardUpdater):
         loss_dis += self.adv_lam*(F.sum(F.softplus(yh_fake))  / batchsize)
         #loss_dis += loss_d_class
         loss_dis += loss_noise
+        loss_dis += loss_recon
         loss_dis += loss_gp
  
         self.dis.cleargrads()
@@ -207,5 +211,6 @@ class AlphaUpdater(chainer.training.StandardUpdater):
             'loss_dis': loss_dis,
             'loss_dis_c': loss_d_class,
             'loss_noise': loss_noise,
+            'loss_recon': loss_recon,
             'loss_gp': loss_gp
         })
