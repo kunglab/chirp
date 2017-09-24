@@ -15,7 +15,7 @@ sys.path.append(os.path.dirname(__file__))
 
 from dragan.updater import AlphaUpdater
 from common.dataset import Dataset, LabeledDataset
-from common.evaluation import rfmod_generate, rfmod_generate_light
+from common.evaluation import encdis_generate, encdic_generate_light
 from common.record import record_setting
 import common.net
 import dataset
@@ -110,10 +110,10 @@ trainer.extend(extensions.PrintReport(report_keys), trigger=(args.display_interv
 trainer.extend(extensions.ProgressBar(update_interval=10))
 
 # visualization functions
-trainer.extend(rfmod_generate(generator, discriminator, args.out, train_max=train_max),
+trainer.extend(encdis_generate(generator, discriminator, args.out, train_max=train_max),
                trigger=(args.evaluation_interval, 'iteration'),
                priority=extension.PRIORITY_WRITER)
-trainer.extend(rfmod_generate_light(generator, discriminator, args.out, train_max=train_max),
+trainer.extend(encdis_generate_light(generator, discriminator, args.out, train_max=train_max),
                trigger=(args.evaluation_interval // 2, 'iteration'),
                priority=extension.PRIORITY_WRITER)
 
