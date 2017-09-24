@@ -57,9 +57,11 @@ for noise_level in noise_levels:
     RFdata_test = dataset.RFModLabeled(noise_levels=[noise_level], test=True)
 
     num_classes = np.unique(RFdata_train.ys).shape[0]
+    if args.model_type == "AlexStock":
+        model = L.Classifier(model_map[args.model_type](num_classes, init_weights=True, filter_height=2))
+    else:
+        model = L.Classifier(model_map[args.model_type](num_classes))
 
-    # train model
-    model = L.Classifier(model_map[args.model_type](num_classes))
     if args.gpu >= 0:
     	chainer.cuda.get_device_from_id(args.gpu).use()
     	model.to_gpu()
@@ -108,4 +110,4 @@ plt.ylabel('Classification Accuracy')
 plt.title('Classification Accuracy for Different Evaluation SNRs')
 plt.ylim([0,1])
 plt.grid()
-plt.savefig(os.path.join(args.out,'classification_acc_VTCNN2_init.png'))
+plt.savefig(os.path.join(args.out,'classification_acc_Alex_init_height2_acc.png'))
