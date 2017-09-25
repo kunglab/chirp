@@ -48,7 +48,7 @@ class Cifar10Dataset(dataset_mixin.DatasetMixin):
         return self.ims[i]
 
 class RFModLabeled(dataset_mixin.DatasetMixin):
-    def __init__(self, class_set=None, noise_levels=None, test=False):
+    def __init__(self, class_set=None, noise_levels=None, test=False, snr=False):
         if not os.path.exists('data/modlabels'):
             os.makedirs('data/modlabels')
             data_urls = ['https://www.dropbox.com/s/ycc1dvb7u6y8eqj/mod_data.npz?dl=1',
@@ -76,11 +76,14 @@ class RFModLabeled(dataset_mixin.DatasetMixin):
             for nl in noise_levels:
                 idx = np.where(self.snr_labels == nl)[0]
                 self.new_xs.append(self.xs[idx])
-                self.new_ys.append(self.ys[idx])
+                if snr:
+                    self.new_ys.append([nl]*len(self.xs[idx]))
+                else:
+                    self.new_ys.append(self.ys[idx])
                 self.new_str_ys.append(self.str_ys[idx])
         self.xs = np.vstack((self.new_xs))
         self.ys = np.hstack((self.new_ys))
-        self.str_ys = np.hstack((self.str_ys))
+        self.str_ys = np.hstack((self.new_str_ys))
 
         print self.xs.shape
 
@@ -109,7 +112,10 @@ class RFModLabeled(dataset_mixin.DatasetMixin):
         print("load labeled dataset.  shape: ", self.xs.shape)
         np.random.seed()
         self.xs = self.xs.astype('float32')
-        self.ys = self.ys.astype('int32')
+        if snr:
+            self.ys = self.ys.astype('float32')
+        else:
+            self.ys = self.ys.astype('int32')
 
     def __len__(self):
         return self.xs.shape[0]
