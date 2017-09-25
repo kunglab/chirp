@@ -51,9 +51,10 @@ RFdata_test = dataset.RFModLabeled(noise_levels=noise_levels, test=True)
 num_classes = np.unique(RFdata_train.ys).shape[0]
 
 # train model
-#model = L.Classifier(Alex(num_classes))
-# model = L.Classifier(VTCNN2(num_classes))
-model = L.Classifier(model_map[args.model_type](num_classes))
+if args.model_type == "AlexStock":
+    model = L.Classifier(model_map[args.model_type](num_classes, init_weights=True, filter_height=2))
+else:
+    model = L.Classifier(model_map[args.model_type](num_classes))
 if args.gpu >= 0:
 	chainer.cuda.get_device_from_id(args.gpu).use()
 	model.to_gpu()
