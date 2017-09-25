@@ -51,7 +51,6 @@ report_keys = ['loss_dis', 'loss_gen', 'loss_gen_c', 'loss_dis_c', 'loss_noise',
 noise_levels = [6,8,16,18]#range(6, 20, 2)
 train_dataset = dataset.RFModLabeled(class_set=['8PSK'], noise_levels=noise_levels, test=False, snr=True)
 print "Here: ", train_dataset.xs.shape
-assert False
 
 num_classes = np.unique(train_dataset.ys).shape[0]
 
@@ -78,8 +77,8 @@ n_hidden = 32
 make_hidden_f = partial(make_hidden, n_hidden)
 generator = common.net.DCGANGenerator(make_hidden_f, n_hidden=make_hidden_f(1).shape[1],
                                       bottom_width=sample_width/8)
-discriminator = common.net.LabeledDiscriminator(bottom_width=sample_width/8,
-                                                n_labels=make_hidden_f(1).shape[1])
+discriminator = common.net.LabeledDiscriminatorJoined(bottom_width=sample_width/8,
+                                                      n_labels=make_hidden_f(1).shape[1])
 models = []
 models = [generator, discriminator]
 if args.gpu >= 0:
