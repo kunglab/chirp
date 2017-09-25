@@ -12,6 +12,9 @@ import chainer.cuda
 from chainer import Variable
 from chainer import serializers
 import chainer.functions as F
+# import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 plot_markers = ['x', '+']

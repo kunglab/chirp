@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+from functools import partial
 
 import numpy as np
 import chainer
@@ -13,7 +14,7 @@ from chainer.training import extensions
 sys.path.append(os.path.dirname(__file__))
 
 from dragan.updater import Updater
-from common.dataset import Cifar10Dataset, Dataset
+from common.dataset import Cifar10Dataset, Dataset, RFModLabeled
 from common.evaluation import sample_generate, sample_generate_light
 from common.record import record_setting
 import common.net
@@ -51,23 +52,35 @@ report_keys = ["loss_dis", "loss_gen", "loss_color"]
 
 # Set up dataset
 num_samp = 2**13
+sample_width = 512
 z = fmlin(num_samp, 0.01, .1)[0]
-num_amps = 3.
+num_amps = 5.
 amps = np.linspace(1./num_amps, 1., num_amps)
 num_samp = 2**13
 z = fmlin(num_samp, 0.01, .1)[0]
-zs = np.array([z*amp for amp in amps[::-1]])
+zs = np.array([z*amp for amp in amps])
 #zr = np.array([zi.real for zi in z]).reshape(1, 1, 1, -1)
-xs = []
-for z in zs:
-    zr = np.array([[zi.real, zi.imag] for zi in z]).T.reshape(1, 1, 2, -1)
-    x = F.im2col(Variable(zr), ksize=(1, 128)).data
-    x = x.transpose(3, 0, 2, 1)
-    xs.append(x)
-xs = np.vstack((xs))
-train_dataset = Dataset(x)
+
+data_set = "rfradio-mod"
+if data_set == "chirp":
+    xs = []
+    ys = []
+    for i, z in enumerate(zs):
+        zr = np.array([[zi.real, zi.imag] for zi in z]).T.reshape(1, 1, 2, -1)
+        x = F.im2col(Variable(zr), ksize=(1, 256)).data
+        x = x.transpose(3, 0, 2, 1)
+        xs.append(x)
+        ys.append(np.array([amps[i]]*x.shape[0]))
+    xs = np.vstack((xs))
+    ys = np.hstack((ys)) ## labels
+else:  ## MOdulation RF dataset
+    train_dataset_labeled = RFModLabeled(noise_levels=[10], class_set=['QPSK', 'GFSK'])
+    dataset_max = np.max(train_dataset_labeled.xs)
+    train_dataset_labeled.xs = train_dataset_labeled.xs/np.max(train_dataset_labeled.xs)
+
+
+train_dataset = Dataset(train_dataset_labeled.xs)
 train_iter = chainer.iterators.SerialIterator(train_dataset, args.batchsize)
-assert False
 
 # Setup algorithm specific networks and updaters
 models = []
@@ -76,9 +89,11 @@ updater_args = {
     "iterator": {'main': train_iter},
     "device": args.gpu
 }
-
-generator = common.net.DCGANGenerator()
-discriminator = common.net.WGANDiscriminator()
+sample_width=128
+n_hidden=10
+make_hidden_f = partial(common.net.standard_make_hidden, n_hidden)
+generator = common.net.DCGANGenerator(make_hidden_f, n_hidden=n_hidden, bottom_width=sample_width/8)
+discriminator = common.net.WGANDiscriminator(bottom_width=sample_width/8)
 models = [generator, discriminator]
 report_keys.append("loss_gp")
 updater_args["n_dis"] = args.n_dis
@@ -108,9 +123,9 @@ for m in models:
 trainer.extend(extensions.LogReport(keys=report_keys,
                                     trigger=(args.display_interval, 'iteration')))
 trainer.extend(extensions.PrintReport(report_keys), trigger=(args.display_interval, 'iteration'))
-trainer.extend(sample_generate(generator, args.out), trigger=(args.evaluation_interval, 'iteration'),
+trainer.extend(sample_generate(generator, args.out, train_max=dataset_max), trigger=(args.evaluation_interval, 'iteration'),
                priority=extension.PRIORITY_WRITER)
-trainer.extend(sample_generate_light(generator, args.out), trigger=(args.evaluation_interval // 10, 'iteration'),
+trainer.extend(sample_generate_light(generator, args.out, train_max=dataset_max), trigger=(args.evaluation_interval // 10, 'iteration'),
                priority=extension.PRIORITY_WRITER)
 trainer.extend(extensions.ProgressBar(update_interval=10))
 

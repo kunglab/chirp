@@ -49,14 +49,14 @@ report_keys = ['loss_dis', 'loss_gen', 'loss_gen_c', 'loss_dis_c', 'loss_noise',
 
 
 noise_levels = [6,8,16,18]#range(6, 20, 2)
-train_dataset = dataset.RFModLabeled(class_set=['8PSK'], noise_levels=noise_levels, test=False)
+train_dataset = dataset.RFModLabeled(class_set=['8PSK'], noise_levels=noise_levels, test=False, snr=True)
+print "Here: ", train_dataset.xs.shape
+assert False
+
 num_classes = np.unique(train_dataset.ys).shape[0]
 
 train_max = np.max(np.abs(train_dataset.xs))
 train_dataset.xs /= train_max
-# make 1-hot
-train_dataset.ys = F.embed_id(train_dataset.ys, np.identity(num_classes, dtype=np.float32)).data
-#train_dataset.ys[train_dataset.ys < 1] = -1
 train_iter = chainer.iterators.SerialIterator(train_dataset, args.batchsize)
 
 
@@ -65,6 +65,11 @@ def make_hidden(n_hidden, batchsize):
     snr_zs = np.random.uniform(6.0, 18.0, (batchsize, 1, 1, 1)).astype(np.float32)
     return np.concatenate((zs, snr_zs), axis=1)
 
+
+
+def peak_error(x,t):
+    # print x[0], t[0]
+    return F.mean_absolute_error(x,t)
 
 
 
@@ -93,7 +98,7 @@ updater = AlphaACUpdater(**{
     'device': args.gpu,
     'gp_lam': args.gp_lam,
     'adv_lam': args.adv_lam,
-    'class_error_f': F.mean_absolute_error,
+    'class_error_f': peak_error,
     'n_labels': make_hidden_f(1).shape[1] - n_hidden,
     'n_noise': n_hidden
 })
