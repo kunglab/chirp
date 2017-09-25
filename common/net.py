@@ -240,32 +240,68 @@ class LabeledDiscriminator(chainer.Chain):
         g = backward_convolution(self.x, g, self.c0)
         return g
 
+class LabeledDiscriminatorJoined(chainer.Chain):
+    def __init__(self, bottom_width=16, ch=512, wscale=0.02, output_dim=1, n_labels=1):
+        w = chainer.initializers.Normal(wscale)
+        self.bottom_width = bottom_width
+        self.ch = ch
+        super(LabeledDiscriminatorJoined, self).__init__()
+        with self.init_scope():
+            self.c0 = L.Convolution2D(1, ch // 8, (1, 3), 1, (0, 1), initialW=w)
+            self.c1 = L.Convolution2D(ch // 8, ch // 4, (1, 4), (1, 2), (0, 1), initialW=w)
+            self.c1_0 = L.Convolution2D(ch // 4, ch // 4, (1, 3), 1, (0, 1), initialW=w)
+            self.c2 = L.Convolution2D(ch // 4, ch // 2, (2, 4), (1, 2), (0, 1), initialW=w)
+            self.c2_0 = L.Convolution2D(ch // 2, ch // 2, (1, 3), 1, (0, 1), initialW=w)
+            self.c3 = L.Convolution2D(ch // 2, ch // 1, (1, 4), (1, 2), (0, 1), initialW=w)
+            self.c3_0 = L.Convolution2D(ch // 1, ch // 1, (1, 3), 1, (0, 1), initialW=w)
+            self.l4 = L.Linear(bottom_width * ch, output_dim, initialW=w)
+            self.l4_1 = L.Linear(bottom_width * ch, n_labels, initialW=w)
+
+    def __call__(self, x):
+        self.x = x
+        self.h0 = F.leaky_relu(self.c0(self.x))
+        self.h1 = F.leaky_relu(self.c1(self.h0))
+        self.h2 = F.leaky_relu(self.c1_0(self.h1))
+        self.h3 = F.leaky_relu(self.c2(self.h2))
+        self.h4 = F.leaky_relu(self.c2_0(self.h3))
+        self.h5 = F.leaky_relu(self.c3(self.h4))
+        self.h6 = F.leaky_relu(self.c3_0(self.h5))
+        return self.l4(self.h6), self.l4_1(self.h6)
+    
+    def differentiable_backward(self, x, xc):
+        g = backward_linear(self.h6, x, self.l4)
+        g += backward_linear(self.h6, xc, self.l4_1)
+        g = F.reshape(g, (x.shape[0], self.ch, 1, self.bottom_width))
+        g = backward_leaky_relu(self.h6, g, 0.2)
+        g = backward_convolution(self.h5, g, self.c3_0)
+        g = backward_leaky_relu(self.h5, g, 0.2)
+        g = backward_convolution(self.h4, g, self.c3)
+        g = backward_leaky_relu(self.h4, g, 0.2)
+        g = backward_convolution(self.h3, g, self.c2_0)
+        g = backward_leaky_relu(self.h3, g, 0.2)
+        g = backward_convolution(self.h2, g, self.c2)
+        g = backward_leaky_relu(self.h2, g, 0.2)
+        g = backward_convolution(self.h1, g, self.c1_0)
+        g = backward_leaky_relu(self.h1, g, 0.2)
+        g = backward_convolution(self.h0, g, self.c1)
+        g = backward_leaky_relu(self.h0, g, 0.2)
+        g = backward_convolution(self.x, g, self.c0)
+        return g
 
 
 class Alex(chainer.Chain):
-    def __init__(self, output_dim, init_weights=False, filter_height=1):
+    def __init__(self, output_dim):
         super(Alex, self).__init__()
         self.output_dim = output_dim
-        self.filter_height = filter_height
         with self.init_scope():
-            if init_weights:
-                self.conv1 = L.Convolution2D(None,  96, (1, 3), 1, (0, 1), initialW=GlorotNormal())
-                self.conv2 = L.Convolution2D(None, 256, (filter_height, 3), 1, (0, 1), initialW=GlorotNormal())
-                self.conv3 = L.Convolution2D(None, 384, (1, 3), 1, (0, 1), initialW=GlorotNormal())
-                self.conv4 = L.Convolution2D(None, 384, (1, 3), 1, (0, 1), initialW=GlorotNormal())
-                self.conv5 = L.Convolution2D(None, 256, (1, 3), 1, (0, 1), initialW=GlorotNormal())
-                self.fc6 = L.Linear(None, 4096, initialW=HeNormal())
-                self.fc7 = L.Linear(None, 4096, initialW=HeNormal())
-                self.fc8 = L.Linear(None, output_dim, initialW=HeNormal())
-            else:
-                self.conv1 = L.Convolution2D(None,  96, (1, 3), 1, (0, 1))
-                self.conv2 = L.Convolution2D(None, 256, (filter_height, 3), 1, (0, 1))
-                self.conv3 = L.Convolution2D(None, 384, (1, 3), 1, (0, 1))
-                self.conv4 = L.Convolution2D(None, 384, (1, 3), 1, (0, 1))
-                self.conv5 = L.Convolution2D(None, 256, (1, 3), 1, (0, 1))
-                self.fc6 = L.Linear(None, 4096)
-                self.fc7 = L.Linear(None, 4096)
-                self.fc8 = L.Linear(None, output_dim)
+            self.conv1 = L.Convolution2D(None,  96, (1, 3), 1, (0, 1))
+            self.conv2 = L.Convolution2D(None, 256, (1, 3), 1, (0, 1))
+            self.conv3 = L.Convolution2D(None, 384, (1, 3), 1, (0, 1))
+            self.conv4 = L.Convolution2D(None, 384, (1, 3), 1, (0, 1))
+            self.conv5 = L.Convolution2D(None, 256, (1, 3), 1, (0, 1))
+            self.fc6 = L.Linear(None, 4096)
+            self.fc7 = L.Linear(None, 4096)
+            self.fc8 = L.Linear(None, output_dim)
 
     def __call__(self, x):
         h = F.max_pooling_2d(F.local_response_normalization(
@@ -274,7 +310,7 @@ class Alex(chainer.Chain):
             F.relu(self.conv2(h))), (1,3), stride=1)
         h = F.relu(self.conv3(h))
         h = F.relu(self.conv4(h))
-        h = F.max_pooling_2d(F.relu(self.conv5(h)), (1,3), stride=2)
+        h = F.max_pooling_2d(F.relu(self.conv5(h)), 3, stride=2)
         h = F.dropout(F.relu(self.fc6(h)))
         h = F.dropout(F.relu(self.fc7(h)))
         h = self.fc8(h)
