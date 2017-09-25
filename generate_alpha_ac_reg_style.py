@@ -1,6 +1,7 @@
 import numpy as np
 import os, sys
 import argparse
+import copy
 
 import chainer
 import chainer.functions as F
@@ -35,6 +36,43 @@ def slerpn(p0, p1, pts=10, min_t=0.0, max_t=1.0):
     return np.array([slerp(np.squeeze(p0), np.squeeze(p1), i)
                      for i in np.linspace(min_t, max_t, pts)])
 
+def plotAnimation(x, outdir, outfile):
+    fig = plt.figure()
+    ax = plt.axes()
+    line, = plt.plot(x[0,0,0,:], x[0,0,1,:], '-o', animated=True)
+    plt.xlim([-2,2])
+    plt.ylim([-2,2])
+
+    def init():
+        plt.plot(x_cir, y_cir, 'ro', markersize=14)
+        line.set_xdata(x[0,0,0,:])
+        line.set_ydata(x[0,0,1,:])
+        return line,
+
+    def func(i):
+        print 'frame: ', i
+        # 'pause' animation at beginning and end
+        if i < 5:
+            i = 0
+        if i >= x.shape[0]:
+            i = x.shape[0] - 1
+
+        line.set_xdata(x[i,0,0,:])
+        line.set_ydata(x[i,0,1,:])
+        return line,
+
+    # out_dir = "figures/constellations"
+    # if not os.path.exists(out_dir):
+        # os.makedirs(out_dir)
+
+    #plt.axis('off')
+    plt.tight_layout()
+    ani = animation.FuncAnimation(fig, func, init_func=init, frames=x.shape[0]+10, interval=100, blit=True)
+    ani.save(os.path.join(outdir, outfile), dpi=50, writer='imagemagick')
+
+
+x_cir = [2., 1.414, 0, -1.414, -2, -1.414, 0, 1.414]
+y_cir = [0., 1.414, 2, 1.414, 0, -1.414, -2., -1.414]
 
 parser = argparse.ArgumentParser(description='Chainer example: MNIST')
 parser.add_argument('--gpu', '-g', type=int, default=-1,
@@ -127,6 +165,7 @@ for noise_level in evaluation_noise_levels:
     xh = chainer.cuda.to_cpu(xh.data)
     xh = xh*train_max
 
+
     plt.figure()
     plt.plot(x.reshape(x.shape[2],x.shape[3]).T)
     plt.ylim([-3,3])
@@ -136,10 +175,18 @@ for noise_level in evaluation_noise_levels:
     plt.ylim([-3,3])
     plt.savefig(os.path.join(args.out, 'SNR%d_recon.png' % (noise_level)))
 
+    fig = plt.figure()
+    ax = plt.subplot(1,1,1)
+    line, = plt.plot(x[0,0,0,:], x[0,0,1,:], '-o')
+    ax.axhline(y=0, color='k')
+    ax.axvline(x=0, color='k')
+    plt.plot(x_cir, y_cir, 'ro', markersize=14)
+    plt.grid()
+    plt.savefig(os.path.join(args.out, 'SNR%d_const.png' % (noise_level)))
+
     if save_npzs:
         np.savez(os.path.join(args.out, 'SNR%d_original.npz' % (noise_level)), x.reshape(x.shape[2],x.shape[3]).T)
         np.savez(os.path.join(args.out, 'SNR%d_recon.npz' % (noise_level)), xh.reshape(xh.shape[2],xh.shape[3]).T)
-
 
 
 ############################################################################################
@@ -161,6 +208,8 @@ for noise_level in evaluation_noise_levels:
     x = generator(z)
     z = chainer.cuda.to_cpu(xp.asarray(z.data))
     x = chainer.cuda.to_cpu(x.data)
+    data = copy.deepcopy(x)
+
     x = x.reshape(x.shape[0], x.shape[2], x.shape[3])
     x = x*train_max
 
@@ -195,6 +244,7 @@ for noise_level in evaluation_noise_levels:
     if save_npzs:
         np.savez(os.path.join(args.out, 'SNR%d_animation.npz' % (noise_level)), x)
 
+    plotAnimation(data, args.out, 'SNR%d_iq_animation.npz' % (noise_level))
 
 
 ##########################################################################
@@ -221,6 +271,7 @@ x = generator(Variable(z))
 
 z = chainer.cuda.to_cpu(z)
 x = chainer.cuda.to_cpu(x.data)
+data = copy.deepcopy(x)
 x = x.reshape(x.shape[0], x.shape[2], x.shape[3])
 x = x*train_max
 
@@ -257,4 +308,4 @@ plt.close(fig)
 if save_npzs:
         np.savez(os.path.join(args.out, 'SNR_interpolation.npz'), x)
     
-
+plotAnimation(data, args.out, 'SNR_iq_animation.npz')
