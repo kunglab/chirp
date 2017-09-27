@@ -301,3 +301,32 @@ class AlphaACUpdater(chainer.training.StandardUpdater):
             'loss_gp': loss_gp
         })
 
+class RegressionUpdater(chainer.training.StandardUpdater):
+    def __init__(self, *args, **kwargs):
+        self.dis = kwargs.pop('models')[0]
+        super(RegressionUpdater, self).__init__(*args, **kwargs)
+    
+    def update_core(self):
+        dis_optimizer = self.get_optimizer('opt_dis')
+        xp = self.dis.xp
+
+        batch = self.get_iterator('main').next()
+        batchsize = len(batch)
+        x, y = [], []
+        for i in range(batchsize):
+            xi, yi = batch[i]
+            x.append(np.asarray(xi).astype("f"))
+            y.append(yi)
+
+        y_real = xp.asarray(y).astype('f').reshape(-1, 1)
+        x_real = (xp.asarray(x))
+        _, y_hat = self.dis(x_real)
+        loss_dis = F.mean_absolute_error(y_hat, y_real)
+ 
+        self.dis.cleargrads()
+        loss_dis.backward()
+        dis_optimizer.update()
+
+        chainer.reporter.report({
+            'loss_dis': loss_dis,
+        })
