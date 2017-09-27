@@ -50,14 +50,26 @@ RFdata_test = dataset.RFModLabeled(noise_levels=noise_levels, test=True)
 
 num_classes = np.unique(RFdata_train.ys).shape[0]
 
+if False:
+    xs = RFdata_train.xs[:,:,0,:] + RFdata_train.xs[:,:,1,:]
+    ys = RFdata_train.xs[:,:,0,:] - RFdata_train.xs[:,:,1,:]
+    RFdata_train.xs[:,:,0,:] = xs
+    RFdata_train.xs[:,:,1,:] = ys
+
+    xs = RFdata_test.xs[:,:,0,:] + RFdata_test.xs[:,:,1,:]
+    ys = RFdata_test.xs[:,:,0,:] - RFdata_test.xs[:,:,1,:]
+    RFdata_test.xs[:,:,0,:] = xs
+    RFdata_test.xs[:,:,1,:] = ys
+
 # train model
 if args.model_type == "AlexStock":
     model = L.Classifier(model_map[args.model_type](num_classes, init_weights=True, filter_height=2))
 else:
     model = L.Classifier(model_map[args.model_type](num_classes))
+
 if args.gpu >= 0:
 	chainer.cuda.get_device_from_id(args.gpu).use()
-	model.to_gpu()
+	# model.to_gpu(args.gpu)
 
 
 #optimizer = chainer.optimizers.Adam(alpha=0.0001, beta1=0.0, beta2=.9)
@@ -66,7 +78,14 @@ optimizer.setup(model)
 train_iter = chainer.iterators.SerialIterator(RFdata_train, args.batchsize)
 test_iter = chainer.iterators.SerialIterator(RFdata_test, args.batchsize,
                                              repeat=False, shuffle=False)
-updater = training.StandardUpdater(train_iter, optimizer, device=args.gpu)
+# updater = training.StandardUpdater(train_iter, optimizer, device=args.gpu)
+updater = training.ParallelUpdater(
+        train_iter,
+        optimizer,
+        # The device of the name 'main' is used as a "master", while others are
+        # used as slaves. Names other than 'main' are arbitrary.
+        devices={'main': 0, 'second': 1},
+    )
 trainer = training.Trainer(updater, (args.epoch, 'epoch'), out=args.out)
 trainer.extend(extensions.Evaluator(test_iter, model, device=args.gpu))
 trainer.extend(extensions.LogReport())
