@@ -46,12 +46,15 @@ parser.add_argument('--adam_beta2', type=float, default=0.9, help='beta2 in Adam
 parser.add_argument('--output_dim', type=int, default=256, help='output dimension of the discriminator (for cramer GAN)')
 
 args = parser.parse_args()
-record_setting(args.out)
+results_output_dir = os.path.join(os.environ['KUNGLAB_SHARE_RESULTS'], args.out) 
+if not os.path.exists(results_output_dir):
+    os.makedirs(results_output_dir)
+record_setting(results_output_dir)
 report_keys = ['loss_dis']
 
 
 
-noise_levels = range(0,20,2)
+noise_levels = [6,8,16,18]
 RFdata_train = dataset.RFModLabeled(noise_levels=noise_levels, test=False, class_set=['8PSK'], snr=True)
 RFdata_test = dataset.RFModLabeled(noise_levels=noise_levels, test=True, class_set=['8PSK'], snr=True)
 
@@ -75,12 +78,15 @@ if augment:
     make_hidden_f = partial(make_hidden, n_hidden)
     generator = common.net.DCGANGenerator(make_hidden_f, n_hidden=make_hidden_f(1).shape[1],
                                         bottom_width=sample_width/8)
-    serializers.load_npz('results_acgenerator_for_regression/DCGANGenerator_50000.npz', generator)
+    
+
+    serializers.load_npz(os.path.join(os.environ['KUNGLAB_SHARE_RESULTS'],'results_acgenerator_for_regression/DCGANGenerator_50000.npz'), generator)
     generator.to_gpu()
     xp = generator.xp
 
-    num_per_snr = 100
-    snr_ranges = range(6,18,2)
+    num_per_snr = 500
+    #snr_ranges = range(6,20,2)
+    snr_ranges = [10,12,14]
 
     xs = []
     ys = []
@@ -128,7 +134,7 @@ updater = RegressionUpdater(**{
     'device': args.gpu,
 })
 
-trainer = training.Trainer(updater, (args.max_iter, 'iteration'), out=args.out)
+trainer = training.Trainer(updater, (args.max_iter, 'iteration'), out=results_output_dir)
 
 for m in models:
     trainer.extend(extensions.snapshot_object(
