@@ -42,6 +42,8 @@ parser.add_argument('--out', '-o', default='result', help='Directory to output t
 args = parser.parse_args()
 
 
+start_idx = 7
+symbol_width = 8
 ## Individual comparisons - orig - recon
 recon_l = ['SNR6', 'SNR12', 'SNR18']
 for r in recon_l:
@@ -54,12 +56,16 @@ for r in recon_l:
     ax.axhline(y=0, color='k')
     ax.axvline(x=0, color='k')
 
-    line, = plt.plot(x, y, '-o')
+    # line, = plt.plot(x, y, '-o')
+    plt.plot(x[start_idx::symbol_width], y[start_idx::symbol_width], 'o', markersize=13)
     plt.plot(x_cir, y_cir, 'ro', markersize=14)
     plt.grid()
     plt.subplot(2,2,2)
     ax.axhline(y=0, color='k')
     ax.axvline(x=0, color='k')
+
+    plt.plot(range(start_idx,x.shape[0], symbol_width), x[start_idx::symbol_width], 'go')
+    plt.plot(range(start_idx, y.shape[0], symbol_width), y[start_idx::symbol_width], 'bo')
     plt.plot(x, '-+')
     plt.plot(y, '-x')
     plt.grid()
@@ -74,19 +80,23 @@ for r in recon_l:
     ax.axhline(y=0, color='k')
     ax.axvline(x=0, color='k')
 
-    line, = plt.plot(x, y, '-o')
+    # line, = plt.plot(x, y, '-o')
+    plt.plot(x[start_idx::symbol_width], y[start_idx::symbol_width], 'o', markersize=13)
     plt.plot(x_cir, y_cir, 'ro', markersize=14)
     plt.grid()
+
     plt.subplot(2,2,4)
     ax.axhline(y=0, color='k')
     ax.axvline(x=0, color='k')
     plt.plot(x, '-+')
     plt.plot(y, '-x')
+    plt.plot(range(start_idx,x.shape[0], symbol_width), x[start_idx::symbol_width], 'go')
+    plt.plot(range(start_idx, y.shape[0], symbol_width), y[start_idx::symbol_width], 'bo')
     plt.grid()
     plt.tight_layout()
     plt.savefig('figures/const_' + r + '.png')
 
-# assert False
+assert False
 
 # x_cir = [1., 0.707, 0, -0.707, -1, -0.707, 0, 0.707]
 # y_cir = [0., 0.707, 1, 0.707, 0, -0.707, -1., -0.707]
