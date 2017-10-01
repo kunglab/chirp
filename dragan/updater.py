@@ -350,12 +350,8 @@ class GEDUpdater(chainer.training.StandardUpdater):
         loss_e_recon = F.mean_absolute_error(xh_real, x_real)
         loss_e_noise = F.mean_absolute_error(z_fake, z.reshape(z.shape[0], z.shape[1]))
 
-        # print "fake"
-        # print z_fake.data
-        # print "real"
-        # print z.reshape(z.shape[0], z.shape[1])
-        loss_enc = loss_e_recon + 10.*loss_e_noise
 
+        loss_enc = loss_e_recon + 10.*loss_e_noise
 
 
         # GENERATOR LOSS - condition piece
