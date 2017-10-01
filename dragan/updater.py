@@ -301,6 +301,104 @@ class AlphaACUpdater(chainer.training.StandardUpdater):
             'loss_gp': loss_gp
         })
 
+### AKA the "jed" updater
+class GEDUpdater(chainer.training.StandardUpdater):
+    def __init__(self, *args, **kwargs):
+        self.gen, self.dis, self.enc = kwargs.pop('models')
+        self.gp_lam = kwargs.pop('gp_lam')
+        self.adv_lam = kwargs.pop('adv_lam')
+        self.class_error_f = kwargs.pop('class_error_f')
+        self.n_labels = kwargs.pop('n_labels')
+        self.n_noise = kwargs.pop('n_noise')
+        super(GEDUpdater, self).__init__(*args, **kwargs)
+    
+    def update_core(self):
+        gen_optimizer = self.get_optimizer('opt_gen')
+        dis_optimizer = self.get_optimizer('opt_dis')
+        enc_optimizer = self.get_optimizer('opt_enc')
+        xp = self.gen.xp
+
+        batch = self.get_iterator('main').next()
+        batchsize = len(batch)
+        x, y = [], []
+        for i in range(batchsize):
+            xi, yi = batch[i]
+            x.append(np.asarray(xi).astype("f"))
+            y.append(yi)
+
+        z = Variable(xp.asarray(self.gen.make_hidden(batchsize)))
+        x_fake = self.gen(z)
+        x_real = (xp.asarray(x))
+        std_x_real = xp.std(x_real, axis=0, keepdims=True)
+        rnd_x = xp.random.uniform(0, 1, x_real.shape).astype('f')
+        x_perturb = Variable(x_real + 0.5 * rnd_x * std_x_real)
+
+        yh_fake, yh_fake_label = self.dis(x_fake)
+        yh_real, yh_real_label = self.dis(x_real)
+
+        _, z_real = self.enc(x_real)
+        xh_real = self.gen(z_real)
+        _, z_fake = self.enc(x_fake)
+
+        # spliting up z based on conditional format, noise | label 
+        y_fake_noise = F.reshape(z[:, :self.n_noise, 0, 0], (-1, self.n_noise))
+        y_fake_label = F.reshape(z[:, self.n_noise:, 0, 0], (-1, self.n_labels))
+
+        y_real_label = xp.asarray(y).astype('f').reshape(-1, self.n_labels)
+
+        # ENCODER LOSS
+        loss_e_recon = F.mean_absolute_error(xh_real, x_real)
+        loss_e_noise = F.mean_absolute_error(z_fake, z.reshape(z.shape[0], z.shape[1]))
+
+        # print "fake"
+        # print z_fake.data
+        # print "real"
+        # print z.reshape(z.shape[0], z.shape[1])
+        loss_enc = loss_e_recon + 10.*loss_e_noise
+
+
+
+        # GENERATOR LOSS - condition piece
+        loss_g_class = self.class_error_f(yh_fake_label, y_fake_label)
+        # Adversarial Loss + loss_g (condition loss)
+        loss_gen = self.adv_lam*(F.sum(F.softplus(-yh_fake)) / batchsize) + loss_g_class + loss_enc
+
+        self.gen.cleargrads()
+        loss_gen.backward()
+        gen_optimizer.update()
+
+        x_fake.unchain_backward()
+
+        self.enc.cleargrads()
+        loss_enc.backward()
+        enc_optimizer.update() 
+
+        loss_d_class = self.class_error_f(yh_real_label, y_real_label)
+
+        yh_perturb, yh_perturb_class = self.dis(x_perturb)
+        dydx = self.dis.differentiable_backward(xp.ones_like(yh_perturb), xp.ones_like(yh_perturb_class))
+        loss_gp = self.gp_lam * F.mean_squared_error(dydx, xp.ones_like(dydx.data))
+
+        loss_dis  = self.adv_lam*(F.sum(F.softplus(-yh_real)) / batchsize)
+        loss_dis += self.adv_lam*(F.sum(F.softplus(yh_fake))  / batchsize)
+        loss_dis += loss_d_class
+        loss_dis += loss_gp
+ 
+        self.dis.cleargrads()
+        loss_dis.backward()
+        dis_optimizer.update()
+
+        chainer.reporter.report({
+            'loss_gen': loss_gen,
+            'loss_gen_c': loss_g_class,
+            'loss_dis': loss_dis,
+            'loss_dis_c': loss_d_class,
+            'loss_gp': loss_gp,
+            'loss_e_recon': loss_e_recon,
+            'loss_e_noise': loss_e_noise,
+            'loss_enc': loss_enc
+        })
+
 class RegressionUpdater(chainer.training.StandardUpdater):
     def __init__(self, *args, **kwargs):
         self.dis = kwargs.pop('models')[0]
